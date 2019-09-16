@@ -395,23 +395,23 @@ case 'o':
 
    This piece of code attempts to create a new line in the screen and move all existing content above when current cursor move out of screen. It is used to scroll the screen up to show more content.
 
-3. > For the following questions you might wish to consult the notes for Lecture 2. These notes cover GCC's calling convention on the x86.  
-   > Trace the execution of the following code step-by-step: 
-   >
-   > ```c
-   > int x = 1, y = 3, z = 4;
-   > cprintf("x %d, y %x, z %d\n", x, y, z);
-   > ```
-   > - In the call to `cprintf()`, to what does `fmt` point? To what does `ap` point?
-   > - List (in order of execution) each call to `cons_putc`, `va_arg`, and `vcprintf`. For `cons_putc`, list its argument as well.  For `va_arg`, list what `ap` points to before and after the call.  For `vcprintf` list the values of its two arguments.
+3. For the following questions you might wish to consult the notes for Lecture 2. These notes cover GCC's calling convention on the x86.  
+   Trace the execution of the following code step-by-step: 
+   
+   ```c
+   int x = 1, y = 3, z = 4;
+   cprintf("x %d, y %x, z %d\n", x, y, z);
+   ```
+   - In the call to `cprintf()`, to what does `fmt` point? To what does `ap` point?
+   - List (in order of execution) each call to `cons_putc`, `va_arg`, and `vcprintf`. For `cons_putc`, list its argument as well.  For `va_arg`, list what `ap` points to before and after the call.  For `vcprintf` list the values of its two arguments.
+   
+   `fmt` points to `"x %d, y %x, z %d\n"`. `ap` points to an array of `[x, y, z]` on the stack that stores all the following variables.
+   
+   Here is a simplified function call sequences of this `cprintf()` call.
 
-`fmt` points to `"x %d, y %x, z %d\n"`. `ap` points to an array of `[x, y, z]` on the stack that stores all the following variables.
-
-Here is a simplified function call sequences of this `cprintf()` call.
-
-```
+	```
 cprintf("x %d, y %x, z %d\n", x, y, z)
-  vcprintf("x %d, y %x, z %d\n", x, y, z)
+   vcprintf("x %d, y %x, z %d\n", x, y, z)
     vprintfmt(putch, &cnt, "x %d, y %x, z %d\n", x, y, z);
       cons_putc('x')
       cons_putc(' ')
@@ -436,30 +436,31 @@ cprintf("x %d, y %x, z %d\n", x, y, z)
         printnum(putch, &cnt, 4, 10, -1, ' ')
           cons_putc('4')
       cons_putc('\n')
-```
+   ```
 
 
-4. > Run the following code. 
-   > ```c
-   > unsigned int i = 0x00646c72;
-   > cprintf("H%x Wo%s", 57616, &i);
-   > ```
-   > What is the output? Explain how this output is arrived at in the step-by-step manner of the previous exercise. 
+
+4. Run the following code. 
+   ```c
+   unsigned int i = 0x00646c72;
+   cprintf("H%x Wo%s", 57616, &i);
+   ```
+   What is the output? Explain how this output is arrived at in the step-by-step manner of the previous exercise. 
 
    ```
    He110 World
    ```
-   
+
    The hex value of 57616 is 0xE110, and byte sequence `0x72 0x6c 0x64 0x00` corresponds to string `"old". This works because our machine is little endian.
-   
-5.  > In the following code, what is going to be printed after `y=`? (note: the answer is not a specific value.)  Why does this happen?  
-   > ```c
-   > cprintf("x=%d y=%d", 3);
-   > ```
+
+5.  In the following code, what is going to be printed after `y=`? (note: the answer is not a specific value.)  Why does this happen?  
+   ```c
+   cprintf("x=%d y=%d", 3);
+   ```
    
    `y` will be some unknown 4-byte values that happens to be placed in the stack above `x`
    
-6. > Let's say that GCC changed its calling convention so that it pushed arguments on the stack in declaration order, so that the last argument is pushed last. How would you have to change `cprintf` or its interface so that it would still be possible to pass it a variable number of arguments? 
+6. Let's say that GCC changed its calling convention so that it pushed arguments on the stack in declaration order, so that the last argument is pushed last. How would you have to change `cprintf` or its interface so that it would still be possible to pass it a variable number of arguments? 
 
    We can push an additional argument specifying the number of arguments in current function call. 
 

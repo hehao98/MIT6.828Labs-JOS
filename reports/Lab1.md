@@ -409,7 +409,7 @@ case 'o':
    
    Here is a simplified function call sequences of this `cprintf()` call.
 
-	```
+```
 cprintf("x %d, y %x, z %d\n", x, y, z)
    vcprintf("x %d, y %x, z %d\n", x, y, z)
     vprintfmt(putch, &cnt, "x %d, y %x, z %d\n", x, y, z);
@@ -436,9 +436,7 @@ cprintf("x %d, y %x, z %d\n", x, y, z)
         printnum(putch, &cnt, 4, 10, -1, ' ')
           cons_putc('4')
       cons_putc('\n')
-   ```
-
-
+```
 
 4. Run the following code. 
    ```c

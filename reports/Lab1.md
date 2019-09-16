@@ -447,7 +447,7 @@ cprintf("x %d, y %x, z %d\n", x, y, z)
    > What is the output? Explain how this output is arrived at in the step-by-step manner of the previous exercise. 
 
    ```
-He110 World
+   He110 World
    ```
    
    The hex value of 57616 is 0xE110, and byte sequence `0x72 0x6c 0x64 0x00` corresponds to string `"old". This works because our machine is little endian.
@@ -503,7 +503,28 @@ static void cga_putc(int c) {
 ...
 ```
 
-Here is the result.
+Here is the test code and result.
+
+```c
+cprintf("Printing colored strings: ");
+cprintf("\x1b[31;40mRed ");
+cprintf("\x1b[32;40mGreen ");
+cprintf("\x1b[33;40mYellow ");
+cprintf("\x1b[34;40mBlue ");
+cprintf("\x1b[35;40mMagenta ");
+cprintf("\x1b[36;40mCyan ");
+cprintf("\x1b[37;40mWhite");
+cprintf("\n");
+cprintf("With background color: ");
+cprintf("\x1b[31;32mRed ");
+cprintf("\x1b[32;33mGreen ");
+cprintf("\x1b[33;34mYellow ");
+cprintf("\x1b[34;35mBlue ");
+cprintf("\x1b[35;36mMagenta ");
+cprintf("\x1b[36;37mCyan ");
+cprintf("\x1b[37;40mWhite");
+cprintf("\n");
+```
 
 ![](img/lab1-challenge.png)
 

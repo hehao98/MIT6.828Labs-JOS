@@ -17,6 +17,15 @@
 #define CRT_COLS	80
 #define CRT_SIZE	(CRT_ROWS * CRT_COLS)
 
+#define CRT_BLACK   0
+#define CRT_BLUE    1
+#define CRT_GREEN   2
+#define CRT_CYAN    3
+#define CRT_RED     4
+#define CRT_MAGENTA 5
+#define CRT_ORANGE  6
+#define CRT_WHITE   7
+
 void cons_init(void);
 int cons_getc(void);
 

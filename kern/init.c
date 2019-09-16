@@ -33,7 +33,29 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
+	// Print some strange stuff
 	cprintf("6828 decimal is %o octal!\n", 6828);
+	unsigned int i = 0x00646c72;
+    cprintf("H%x Wo%s\n", 57616, &i);
+	cprintf("Printing colored strings: ");
+	cprintf("\x1b[31;40mRed ");
+	cprintf("\x1b[32;40mGreen ");
+	cprintf("\x1b[33;40mYellow ");
+	cprintf("\x1b[34;40mBlue ");
+	cprintf("\x1b[35;40mMagenta ");
+	cprintf("\x1b[36;40mCyan ");
+	cprintf("\x1b[37;40mWhite");
+	cprintf("\n");
+	cprintf("With background color: ");
+	cprintf("\x1b[31;32mRed ");
+	cprintf("\x1b[32;33mGreen ");
+	cprintf("\x1b[33;34mYellow ");
+	cprintf("\x1b[34;35mBlue ");
+	cprintf("\x1b[35;36mMagenta ");
+	cprintf("\x1b[36;37mCyan ");
+	cprintf("\x1b[37;40mWhite");
+	cprintf("\n");
+
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);

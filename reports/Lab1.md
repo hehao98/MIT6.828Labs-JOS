@@ -4,6 +4,16 @@
 
 All exercises and challenges completed.
 
+```
+running JOS: (1.4s) 
+  printf: OK 
+  backtrace count: OK 
+  backtrace arguments: OK 
+  backtrace symbols: OK 
+  backtrace lines: OK 
+Score: 50/50
+```
+
 ## Environment Configuration
 
 ```
@@ -528,4 +538,123 @@ cprintf("\n");
 ![](img/lab1-challenge.png)
 
 ### Exercise 9
+
+>**Exercise 9.** Determine where the kernel initializes its stack, and exactly where in memory its stack is located. How does the kernel reserve space for its stack? And at which "end" of this reserved area is the stack pointer initialized to point to?
+
+The stack is initialized in `entry.S`
+
+``` assembly
+	# Clear the frame pointer register (EBP)
+	# so that once we get into debugging C code,
+	# stack backtraces will be terminated properly.
+	movl	$0x0,%ebp			# nuke frame pointer
+
+	# Set the stack pointer
+	movl	$(bootstacktop),%esp
+```
+
+It is located here and its size is `KSTKSIZE`(32KB).
+
+```assembly
+.data
+###################################################################
+# boot stack
+###################################################################
+	.p2align	PGSHIFT		# force page alignment
+	.globl		bootstack
+bootstack:
+	.space		KSTKSIZE
+	.globl		bootstacktop   
+bootstacktop:
+```
+
+By looking at `kernel.asm` we can found that the stack starts at the memory location 0xf0110000 and grows downwards.
+
+### Exercise 10
+
+>Exercise 10. To become familiar with the C calling conventions on the x86, find the address of the `test_backtrace` function in `obj/kern/kernel.asm`, set a breakpoint there, and examine what happens each time it gets called after the kernel starts. How many 32-bit words does each recursive nesting level of `test_backtrace` push on the stack, and what are those words?
+>
+>Note that, for this exercise to work properly, you should be using the patched version of QEMU available on the [tools](https://pdos.csail.mit.edu/6.828/2018/tools.html) page or on Athena. Otherwise, you'll have to manually translate all breakpoint and memory addresses to linear addresses. 
+
+```
+First Call:  ESP=0xf010ffbc EBP=0xf010fff8
+Second Call: ESP=0xf010ff9c EBP=0xf010ffb8
+Third Call:  ESP=0xf010ff7c EBP=0xf010ff98
+Fourth Call: ESP=0xf010ff5c EBP=0xf010ff78
+Fifth Call:  ESP=0xf010ff3c EBP=0xf010ff58 
+Stack Contents
+0xf010ff3c:	0xf01000a1	0x00000001	0x00000002	0xf010ff78
+0xf010ff4c:	0xf010004a	0xf011130c	0x00000003	0xf010ff78
+0xf010ff5c:	0xf01000a1	0x00000002	0x00000003	0xf010ff98
+0xf010ff6c:	0xf010004a	0xf011130c	0x00000004	0xf010ff98
+0xf010ff7c:	0xf01000a1	0x00000003	0x00000004	0x00000000
+0xf010ff8c:	0xf010004a	0xf011130c	0x00000005	0xf010ffb8
+0xf010ff9c:	0xf01000a1	0x00000004	0x00000005	0x00000000
+0xf010ffac:	0xf010004a	0xf011130c	0xf0101deb	0xf010fff8
+0xf010ffbc:	0xf0100205	0x00000005	0x0000e110	0xf010ffdc
+```
+
+Each time, 8 32-bit words are pushed into stack.  When control enters a function, the first word ESP points to is the return address, and the words above the return address are parameters. Other words are context information needed for the execution of the caller function. Then in the function will push the previous EBP and subtract ESP, etc.
+
+### Exercise 11
+
+>**Exercise 11.** Implement the `backtrace ` function as specified above.
+
+```c
+int
+mon_backtrace(int argc, char **argv, struct Trapframe *tf)
+{
+	cprintf("Stack backtrace:\n");
+
+	uint32_t ebp = read_ebp();
+	while (ebp != 0) {
+		uint32_t *p = (uint32_t *) ebp;
+		uint32_t eip = p[1];
+		for (int i = 0; i < 5; ++i) {
+			cprintf(" %08x", p[i + 2]);
+		}
+		cprintf("\n");
+		ebp = *p;
+	}
+
+	return 0;
+}
+```
+
+### Exercise 12
+
+> **Exercise 12.** Modify your stack backtrace function to display, for each `eip`, the function name, source file name, and line number corresponding to that `eip`.
+
+In `mon_backtrace()`
+
+```c
+// Print context info
+struct Eipdebuginfo info;
+int ret = debuginfo_eip(eip, &info);
+cprintf("%s:%d: %.*s+%d\n", info.eip_file, info.eip_line,
+	info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
+```
+
+In `debuginfo_eip()`
+
+```c
+stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+if (lline <= rline) {
+	info->eip_line = stabs[lline].n_desc;
+} else {
+	return -1;
+}
+```
+
+Running `make grade`
+
+```
+running JOS: (1.4s) 
+  printf: OK 
+  backtrace count: OK 
+  backtrace arguments: OK 
+  backtrace symbols: OK 
+  backtrace lines: OK 
+Score: 50/50
+```
 

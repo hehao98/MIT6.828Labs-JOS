@@ -23,19 +23,8 @@ test_backtrace(int x)
 }
 
 void
-i386_init(void)
+lab1_test(void)
 {
-	extern char edata[], end[];
-
-	// Before doing anything else, complete the ELF loading process.
-	// Clear the uninitialized global data (BSS) section of our program.
-	// This ensures that all static/global variables start out zero.
-	memset(edata, 0, end - edata);
-
-	// Initialize the console.
-	// Can't call cprintf until after we do this!
-	cons_init();
-
 	// Print some strange stuff
 	cprintf("6828 decimal is %o octal!\n", 6828);
 	unsigned int i = 0x00646c72;
@@ -59,9 +48,28 @@ i386_init(void)
 	cprintf("\x1b[37;40mWhite");
 	cprintf("\n");
 
-
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);
+}
+
+void
+i386_init(void)
+{
+	extern char edata[], end[];
+
+	// Before doing anything else, complete the ELF loading process.
+	// Clear the uninitialized global data (BSS) section of our program.
+	// This ensures that all static/global variables start out zero.
+	memset(edata, 0, end - edata);
+
+	// Initialize the console.
+	// Can't call cprintf until after we do this!
+	cons_init();
+
+	// lab1_test();
+
+	// Lab2: Initialize memory
+	mem_init();
 
 	// Drop into the kernel monitor.
 	while (1)

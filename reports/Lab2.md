@@ -11,7 +11,7 @@
 > `page_alloc()`
 > `page_free()`
 
-The implementation of Exercise 1 is relatively simple and straight forward, which is basically linked list manipulation stuff and is also very similar to memory allocation code in xv6. However, when programming, special attention need to be paid on whether a value is a physical address or a kernel address. The implementation of `page_init()` is a little bit tricky because you have to identify the top of kernel memory using `boot_alloc(0)`.
+The implementation of Exercise 1 is relatively simple and straight forward, which is basically linked list manipulation stuff and is also very similar to memory allocation code in xv6. However, when programming, special attention need to be paid on whether a value is a physical address or a kernel address. It will be very helpful if we can distinguish them using `intptr_t` and `phyaddr_t`. The implementation of `page_init()` is a little bit tricky because you have to identify the top of kernel memory using `boot_alloc(0)`.
 
 ## Exercise 2
 
@@ -30,7 +30,7 @@ Software             |              |-------->|           |---------->  RAM
             Virtual                   Linear                Physical
 ```
 
-In JOS, we installed an GDT that we installed a Global Descriptor Table (GDT)that effectively disabled segment translation by setting all segment base addresses to 0 and limits to 0xffffffff. However, we have not set something about privilege levels yet, which is needed when we implement user processes.
+In JOS, we installed an GDT that we installed a Global Descriptor Table (GDT) that effectively disabled segment translation by setting all segment base addresses to 0 and limits to 0xffffffff. However, we have not set something about privilege levels yet, which is needed when we implement user processes.
 
 ## Exercise 3
 
@@ -98,4 +98,27 @@ VPN range     Entry         Flags        Physical page
 The type of `x` should be `uintptr_t` because `value` is a pointer that can be dereferenced, so `x` stores the value of a virtual address.
 
 ## Exercise 4
+
+> **Exercise 4.** In the file kern/pmap.c, you must implement code for the following functions. `pgdir_walk()` `boot_map_region()` `page_lookup()` `page_remove()` `page_insert()`
+
+When implementing `pgdir_walk()`, you must be very careful in order to follow the specifications mentioned in the comments. For example, when creating a new page table entry, you have to increment the reference count of physical memory and handle the case of physical memory running out.
+
+The implementation of `boot_map_region()`, `page_remove()` and `page_lookup()` is relatively straightforward. 
+
+The implementation of `page_insert()` need some careful consideration. As specified in the comment, you have to handle the corner case in one code path. More specifically, we need to handle the case when the same `pp` is re-inserted at the same virtual address in the same `pgdir`, but the `perm` might be different. We also need to invalidate TLB where needed. However, we can see that `page_remove()` can handle these for us! Also, if we increment `pp_ref` prior to `page_remove()`, the code works in all cases! Therefore, my final implementation is the following.
+
+```c
+int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
+{
+	pte_t *pte = pgdir_walk(pgdir, va, true);
+	if (pte == NULL) return -E_NO_MEM;
+	pp->pp_ref++;
+	if (*pte & PTE_P) page_remove(pgdir, va);
+	*pte = page2pa(pp) | perm | PTE_P;
+	pgdir[PDX(va)] |= perm;
+	return 0;
+}
+```
+
+## Exercise 5
 

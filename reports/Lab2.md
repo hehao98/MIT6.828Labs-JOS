@@ -2,6 +2,17 @@
 
 ## Summary of Results
 
+All exercises compelted and all question answered.
+
+```
+running JOS: (1.2s) 
+  Physical page allocator: OK 
+  Page management: OK 
+  Kernel page directory: OK 
+  Page management 2: OK 
+Score: 70/70
+```
+
 ## Exercise 1
 
 > **Exercise 1.** In the file `kern/pmap.c`, you must implement code for the following functions (probably in the order given).
@@ -31,6 +42,8 @@ Software             |              |-------->|           |---------->  RAM
 ```
 
 In JOS, we installed an GDT that we installed a Global Descriptor Table (GDT) that effectively disabled segment translation by setting all segment base addresses to 0 and limits to 0xffffffff. However, we have not set something about privilege levels yet, which is needed when we implement user processes.
+
+When programming this lab, we also need to understand flags in PTE entrys in greater detail. We need to manually set `PTE_P`, `PTE_U` and  `PTE_W` flags when setting up page table.
 
 ## Exercise 3
 
@@ -85,25 +98,38 @@ VPN range     Entry         Flags        Physical page
   [f0116-f03ff]  PTE[116-3ff] ---DA---WP 00116-003ff
 ```
 
-### Question
-
-> Assuming that the following JOS kernel code is correct, what type should variable `x` have, `uintptr_t` or `physaddr_t`?
-> ```c
-> mystery_t x;
-> char* value = return_a_pointer();
-> *value = 10;
-> x = (mystery_t) value;
-> ```
-
-The type of `x` should be `uintptr_t` because `value` is a pointer that can be dereferenced, so `x` stores the value of a virtual address.
-
 ## Exercise 4
 
 > **Exercise 4.** In the file kern/pmap.c, you must implement code for the following functions. `pgdir_walk()` `boot_map_region()` `page_lookup()` `page_remove()` `page_insert()`
 
 When implementing `pgdir_walk()`, you must be very careful in order to follow the specifications mentioned in the comments. For example, when creating a new page table entry, you have to increment the reference count of physical memory and handle the case of physical memory running out.
 
-The implementation of `boot_map_region()`, `page_remove()` and `page_lookup()` is relatively straightforward. 
+The implementation of `page_remove()` and `page_lookup()` is relatively straightforward.
+
+I have fallen into a trap when implementing `boot_map_region()` because I have failed to consider integer overflow bugs! This is my initial verision.
+
+```c
+for (uintptr_t p = va; p < va + size; p += PGSIZE) {
+	pte_t *pte = pgdir_walk(pgdir, (void *)p, true);
+	*pte = PTE_ADDR(pa) | perm | PTE_P;
+	pa += PGSIZE;
+}
+```
+
+This version of `boot_map_region()` is wrong because it will map nothing on this call due to integer overflow.
+
+```c
+boot_map_region(kern_pgdir, KERNBASE, 0xFFFFFFFF - KERNBASE + 1, 0, PTE_W);
+```
+
+This is the correct version.
+
+```c
+for (size_t i = 0; i < size; i += PGSIZE) {
+	pte_t *pte = pgdir_walk(pgdir, (void *)(va + i), true);
+	*pte = PTE_ADDR(pa + i) | perm | PTE_P;
+}
+```
 
 The implementation of `page_insert()` need some careful consideration. As specified in the comment, you have to handle the corner case in one code path. More specifically, we need to handle the case when the same `pp` is re-inserted at the same virtual address in the same `pgdir`, but the `perm` might be different. We also need to invalidate TLB where needed. However, we can see that `page_remove()` can handle these for us! Also, if we increment `pp_ref` prior to `page_remove()`, the code works in all cases! Therefore, my final implementation is the following.
 
@@ -122,3 +148,25 @@ int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 ## Exercise 5
 
+> **Exercise 5.** Fill in the missing code in `mem_init()` after the call to `check_page()`.
+
+This three lines of code will work.
+
+```c
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
+	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+	boot_map_region(kern_pgdir, KERNBASE, 0xFFFFFFFF - KERNBASE + 1, 0, PTE_W);
+```
+
+## Answer to Questions
+
+> Assuming that the following JOS kernel code is correct, what type should variable `x` have, `uintptr_t` or `physaddr_t`?
+
+```c
+ mystery_t x;
+ char* value = return_a_pointer();
+ *value = 10;
+ x = (mystery_t) value;
+ ```
+
+The type of `x` should be `uintptr_t` because `value` is a pointer that can be dereferenced, so `x` stores the value of a virtual address.

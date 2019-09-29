@@ -216,3 +216,6 @@ Because in the entry page directory, we have mapped both virtual address 0x0-0x4
 	jmp	*%eax
 relocated:
 ```
+
+## Challenge
+

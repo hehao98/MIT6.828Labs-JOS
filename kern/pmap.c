@@ -344,6 +344,14 @@ page_decref(struct PageInfo* pp)
 		page_free(pp);
 }
 
+// Return address to current page directory entry
+pde_t *
+get_curr_pde()
+{
+	// Current only kernel page table
+	return kern_pgdir;
+}
+
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE) for linear address 'va'.
 // This requires walking the two-level page table structure.

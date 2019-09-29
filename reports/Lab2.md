@@ -2,7 +2,7 @@
 
 ## Summary of Results
 
-All exercises compelted and all question answered.
+All exercises compelted and all question answered. For challange, I choose to implement new kernel monitor commands for inspecting memory management.
 
 ```
 running JOS: (1.2s) 
@@ -218,4 +218,63 @@ relocated:
 ```
 
 ## Challenge
+
+
+
+> **Challenge!** Extend the JOS kernel monitor with commands to:
+>
+> Display in a useful and easy-to-read format all of the physical page mappings (or lack thereof) that apply to a particular range of virtual/linear addresses in the currently active address space. For example, you might enter 'showmappings 0x3000 0x5000' to display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses 0x3000, 0x4000, and 0x5000.
+>
+> Explicitly set, clear, or change the permissions of any mapping in the current address space.
+>
+> Dump the contents of a range of memory given either a virtual or physical address range. Be sure the dump code behaves correctly when the range extends across page boundaries!
+> 
+> Do anything else that you think might be useful later for debugging the kernel. (There's a good chance it will be!)
+
+Most of the implementation takes place in `monitor.c`, but you have to modify `pmap.c` and `pmap.h` a little bit in order to expose `kern_pgdir` to other files. Since there is only one page table now, we only need to have access to `kern_pgdir`, but modification is needed if we implement multiple page tables later.
+
+I implemented the following commands.
+
+```
+showmapping addr_begin addr_end
+virtmem addr_begin addr_end
+phymem addr_begin addr_end
+chgperm addr_begin addr_end
+```
+
+Here is an example of its usage. 
+
+```
+K> showmapping 0xf0100000 0xf0110000
+Current Page Table Address: 0xf0119000
+[f0000000-f03fffff]:
+    f0100000: 00100000 ---a---wp
+    f0101000: 00101000 ---a---wp
+    f0102000: 00102000 ---a---wp
+    f0103000: 00103000 ---a---wp
+    f0104000: 00104000 ---a---wp
+    f0105000: 00105000 ---a---wp
+    f0106000: 00106000 -------wp
+    f0107000: 00107000 -------wp
+    f0108000: 00108000 -------wp
+    f0109000: 00109000 -------wp
+    f010a000: 0010a000 -------wp
+    f010b000: 0010b000 -------wp
+    f010c000: 0010c000 -------wp
+    f010d000: 0010d000 -------wp
+    f010e000: 0010e000 -------wp
+    f010f000: 0010f000 -------wp
+K> chgperm 0xf0100000 1
+K> showmapping 0xf0100000 0xf0101000
+Current Page Table Address: 0xf0119000
+[f0000000-f03fffff]:
+    f0100000: 00100000 --------p
+K> virtmem 0xf0100000 0xf0100010
+0xf0100000: 0x1badb002 0x00000000 0xe4524ffe 0x7205c766
+K> phymem 0x100000 0x100010
+0x00100000: 0x1badb002 0x00000000 0xe4524ffe 0x7205c766
+K> 
+```
+
+Most of the implementation are not very hard, although it may need some programming effort to make it right. Also, I have encountered a subtle triple fault bug when implementing `showmappings`, which turned out to be a kernel stack overflow error.
 

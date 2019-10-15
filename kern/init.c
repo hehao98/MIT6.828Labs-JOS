@@ -12,6 +12,48 @@
 #include <kern/trap.h>
 
 
+// Test the stack backtrace function (lab 1 only)
+void
+test_backtrace(int x)
+{
+	cprintf("entering test_backtrace %d\n", x);
+	if (x > 0)
+		test_backtrace(x-1);
+	else
+		mon_backtrace(0, 0, 0);
+	cprintf("leaving test_backtrace %d\n", x);
+}
+
+void
+lab1_test(void)
+{
+	// Print some strange stuff
+	cprintf("6828 decimal is %o octal!\n", 6828);
+	unsigned int i = 0x00646c72;
+    cprintf("H%x Wo%s\n", 57616, &i);
+	cprintf("Printing colored strings: ");
+	cprintf("\x1b[31;40mRed ");
+	cprintf("\x1b[32;40mGreen ");
+	cprintf("\x1b[33;40mYellow ");
+	cprintf("\x1b[34;40mBlue ");
+	cprintf("\x1b[35;40mMagenta ");
+	cprintf("\x1b[36;40mCyan ");
+	cprintf("\x1b[37;40mWhite");
+	cprintf("\n");
+	cprintf("With background color: ");
+	cprintf("\x1b[31;32mRed ");
+	cprintf("\x1b[32;33mGreen ");
+	cprintf("\x1b[33;34mYellow ");
+	cprintf("\x1b[34;35mBlue ");
+	cprintf("\x1b[35;36mMagenta ");
+	cprintf("\x1b[36;37mCyan ");
+	cprintf("\x1b[37;40mWhite");
+	cprintf("\n");
+
+	// Test the stack backtrace function (lab 1 only)
+	test_backtrace(5);
+}
+
 void
 i386_init(void)
 {
@@ -26,9 +68,9 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
+	// lab1_test();
 
-	// Lab 2 memory management initialization functions
+	// Lab2: Initialize memory
 	mem_init();
 
 	// Lab 3 user environment initialization functions

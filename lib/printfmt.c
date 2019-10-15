@@ -8,6 +8,43 @@
 #include <inc/stdarg.h>
 #include <inc/error.h>
 
+static bool 
+isdigit(char ch) {
+	return ch <= '9' && ch >= '0';
+}
+
+static uint16_t 
+mapcolor(uint16_t ascii_color)
+{
+	uint16_t default_value = 7; // white
+
+	if (ascii_color >= 40) { // is background
+		ascii_color -= 10;
+		default_value = 0;
+	}
+
+	switch (ascii_color) {
+	case 30: // Black
+		return 0;
+	case 31: // Red
+		return 4;
+	case 32: // Green
+		return 2;
+	case 33: // Yellow
+		return 6;
+	case 34: // Blue
+		return 1;
+	case 35: // Magenta
+		return 5;
+	case 36: // Cyan
+		return 3;
+	case 37: // White
+		return 7;
+	}
+
+	return default_value;
+}
+
 /*
  * Space or zero padding and a field width are supported for the numeric
  * formats only.
@@ -92,6 +129,25 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
 				return;
+
+			// Check whether there is a valid escape sequence like "\x1b[37;00m"
+			// the first 37 specifies the foreground color to white
+			// the second 00 speifies the background color to none
+			// For a complete list please refer to
+			//     http://rrbrandt.dee.ufcg.edu.br/en/docs/ansi/
+			unsigned char *ufmt = (unsigned char *)fmt;
+			if (ch == 0x1b && *ufmt == '[' && isdigit(*(ufmt + 1))
+			    && isdigit(*(ufmt + 2)) && *(ufmt + 3) == ';' 
+				&& isdigit(*(ufmt + 4)) && isdigit(*(ufmt + 5))
+				&& *(ufmt + 6) == 'm') {
+				uint8_t foreground = mapcolor((*(ufmt + 1) - '0') * 10 + *(ufmt + 2) - '0');
+				uint8_t background = mapcolor((*(ufmt + 4) - '0') * 10 + *(ufmt + 5) - '0');
+				uint16_t color = (background << 12) | (foreground << 8);
+				set_color_info(color);
+				fmt += 7;
+				continue;
+			}
+
 			putch(ch, putdat);
 		}
 
@@ -206,10 +262,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 
 		// pointer
 		case 'p':

@@ -70,10 +70,10 @@ i386_init(void)
 
 	// lab1_test();
 
-	// Lab2: Initialize memory
+	// Lab 2: Initialize memory
 	mem_init();
 
-	// Lab 3 user environment initialization functions
+	// Lab 3: user environment initialization functions
 	env_init();
 	trap_init();
 

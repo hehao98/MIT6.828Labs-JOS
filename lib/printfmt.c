@@ -143,7 +143,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 				uint8_t foreground = mapcolor((*(ufmt + 1) - '0') * 10 + *(ufmt + 2) - '0');
 				uint8_t background = mapcolor((*(ufmt + 4) - '0') * 10 + *(ufmt + 5) - '0');
 				uint16_t color = (background << 12) | (foreground << 8);
-				set_color_info(color);
+				//set_color_info(color);
 				fmt += 7;
 				continue;
 			}

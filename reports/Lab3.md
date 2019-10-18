@@ -59,6 +59,35 @@ The interruption and exception mechanism has been partly covered in CSAPP, and a
 
 ## Exercise 4
 
-    
+> **Exercise 4.** Implement the basic exception handling feature described above.
 
+When implementing code for Exercise 4, there are a number of specific details that we need to pay attention to, like which interrupt has an error code and whether to set the `istrap` flag in IDT descriptor. For setting up IDT and determine which interrupt uses error code, I have found this page(http://wiki.osdev.org/Exceptions) more useful than 80386 manual.
 
+The code is just a duplication of `TRAPHANDLER` and `SETGATE` macros like this.
+
+```
+
+TRAPHANDLER_NOEC(handler_div, T_DIVIDE)
+TRAPHANDLER_NOEC(handler_debug, T_DEBUG)
+TRAPHANDLER_NOEC(handler_nmi, T_NMI)
+TRAPHANDLER_NOEC(handler_brkpt, T_BRKPT)
+TRAPHANDLER_NOEC(handler_oflow, T_OFLOW)
+TRAPHANDLER_NOEC(handler_bound, T_BOUND)
+...
+TRAPHANDLER_NOEC(handler_syscall, T_SYSCALL)
+TRAPHANDLER_NOEC(handler_default, T_DEFAULT)
+```
+
+I have to admit my implementation for this is very ugly, which I decide to improve in the following challenge.
+
+## Questions
+
+> 1. What is the purpose of having an individual handler function for each exception/interrupt? (i.e., if all exceptions/interrupts were delivered to the same handler, what feature that exists in the current implementation could not be provided?)
+
+Without a seperate handler for each interrupt we have no way to know the interruption number. In x86 there is no hardware mechanism for that, so the operating system has to do this.
+
+> 2. Did you have to do anything to make the `user/softint` program behave correctly? The grade script expects it to produce a general protection fault (trap 13), but softint's code says `int $14`. Why should this produce interrupt vector 13? What happens if the kernel actually allows softint's `int $14` instruction to invoke the kernel's page fault handler (which is interrupt vector 14)?
+
+I have not did anything special to make this program behave correctly, because I have set the privilege level of all interruption handler except the syscall handler to be 0, so any user program that uses `int $14` will trigger an general protection fault. If the user program is allowed to use `int` to trigger interrupts other than system calls, malicious or buggy programs can easily destory the whole system. 
+
+## Challenge

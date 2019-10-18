@@ -185,11 +185,22 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 3: Your code here.
 	if (tf->tf_trapno == T_PGFLT) {
 		page_fault_handler(tf);
+		return;
 	}
 
 	if (tf->tf_trapno == T_BRKPT || tf->tf_trapno == T_DEBUG) {
 		cprintf("Triggered Breakpoint at 0x%08x\n", tf->tf_eip);
 		monitor(tf);
+		return;
+	}
+
+	if (tf->tf_trapno == T_SYSCALL) {
+		uint32_t ret = syscall(tf->tf_regs.reg_eax, 
+			tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
+			tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi,
+			tf->tf_regs.reg_esi);
+		tf->tf_regs.reg_eax = ret;
+		return;
 	}
 
 	// Unexpected trap: The user process or the kernel has a bug.

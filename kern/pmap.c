@@ -397,7 +397,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		}
 		pi->pp_ref++;
 		pte_t *vaddr = page2kva(pi);
-		pgdir[pdx] = page2pa(pi) | PTE_P | PTE_W;
+		pgdir[pdx] = page2pa(pi) | PTE_P | PTE_W | PTE_U;
 		return &vaddr[PTX(va)];
 	}
 	return NULL; // not present and create == false

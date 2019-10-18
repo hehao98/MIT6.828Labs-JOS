@@ -219,3 +219,80 @@ TRAP frame at 0xf01d3000
 [00001000] free env 00001000
 Destroyed the only environment - nothing more to do!
 ```
+
+## Exercise 7
+
+> **Exercise 7.** Add a handler in the kernel for interrupt vector T_SYSCALL. You will have to edit kern/trapentry.S and kern/trap.c's trap_init(). You also need to change trap_dispatch() to handle the system call interrupt by calling syscall() (defined in kern/syscall.c) with the appropriate arguments, and then arranging for the return value to be passed back to the user process in %eax. Finally, you need to implement syscall() in kern/syscall.c. Make sure syscall() returns -E_INVAL if the system call number is invalid. You should read and understand lib/syscall.c (especially the inline assembly routine) in order to confirm your understanding of the system call interface. Handle all the system calls listed in inc/syscall.h by invoking the corresponding kernel function for each call. 
+
+To implement syscall, we have to understand the following inline assembly.
+
+```c
+asm volatile("int %1\n"
+		     : "=a" (ret)
+		     : "i" (T_SYSCALL),
+		       "a" (num),
+		       "d" (a1),
+		       "c" (a2),
+		       "b" (a3),
+		       "D" (a4),
+		       "S" (a5)
+		     : "cc", "memory");
+```
+
+We need to know that this inline assembly has assigned system call number and arguments to these registers, and we can read these registers in kernel from the trap frame like this. We can also return the system call return value by setting `%eax` register in the trap frame.
+
+```c
+if (tf->tf_trapno == T_SYSCALL) {
+	uint32_t ret = syscall(tf->tf_regs.reg_eax, 
+		tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
+		tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi,
+		tf->tf_regs.reg_esi);
+	tf->tf_regs.reg_eax = ret;
+	return;
+}
+```
+
+The implementation of the real system calls is fairly straighforward.
+
+```c
+switch (syscallno) {
+case SYS_cputs:
+	sys_cputs((const char *)a1, a2);
+	return 0;
+case SYS_cgetc:
+	return sys_cgetc();
+case SYS_getenvid:
+	return sys_getenvid();
+case SYS_env_destroy:
+	return sys_env_destroy(a1);
+default:
+	return -E_INVAL;
+}
+```
+
+## Exercise 8
+
+> **Exercise 8.** Add the required code to the user library, then boot your kernel. You should see `user/hello` print "hello, world" and then print "i am environment 00001000". `user/hello` then attempts to "exit" by calling `sys_env_destroy()`.
+
+Modifying `lib/libmain.c` is simple.
+
+```c
+thisenv = &envs[ENVX(sys_getenvid())];
+```
+
+However, during my implementation process a page fault is still generated at the second `cprintf` in `hello` user program. Why? By using `info pg` in `qemu` simulator I have found that the page directory corresponding to `UENV` has not set the `PTE_U` permission!
+
+```
+VPN range     Entry         Flags        Physical page
+[eec00-ef3ff]  PDE[3bb-3bc] --------WP
+  [eec00-ef3ff]  PTE[000-3ff] -------U-P 001d3-005d2 00193-00592
+```
+
+So there is a hidden bug from Lab 2, in `pgdir_walk()`! Although the comments say that we can make permissions in page directory entry more permissive, I have missed to assign `PTE_U` flag to each diectory entry. Therefore I made the following modification.
+
+```c
+pgdir[pdx] = page2pa(pi) | PTE_P | PTE_W | PTE_U;
+```
+
+Then the `hello` program can pass the test.
+

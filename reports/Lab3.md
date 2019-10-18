@@ -88,6 +88,134 @@ Without a seperate handler for each interrupt we have no way to know the interru
 
 > 2. Did you have to do anything to make the `user/softint` program behave correctly? The grade script expects it to produce a general protection fault (trap 13), but softint's code says `int $14`. Why should this produce interrupt vector 13? What happens if the kernel actually allows softint's `int $14` instruction to invoke the kernel's page fault handler (which is interrupt vector 14)?
 
-I have not did anything special to make this program behave correctly, because I have set the privilege level of all interruption handler except the syscall handler to be 0, so any user program that uses `int $14` will trigger an general protection fault. If the user program is allowed to use `int` to trigger interrupts other than system calls, malicious or buggy programs can easily destory the whole system. 
+I have not did anything special to make this program behave correctly, because I have set the privilege level of all interruption handler except  syscall and breakpoint to be 0, so any user program that uses `int $14` will trigger an general protection fault. If the user program is allowed to use `int` to trigger interrupts other than system calls, malicious or buggy programs can easily destory the whole system. 
+
+## Exercise 5
+
+> **Exercise 5.** Modify trap_dispatch() to dispatch page fault exceptions to page_fault_handler(). 
+
+Implementation is straightforward.
+
+```c
+if (tf->tf_trapno == T_PGFLT) {
+	page_fault_handler(tf);
+}
+```
+
+## Exercise 6
+
+> **Exercise 6.** Modify trap_dispatch() to make breakpoint exceptions invoke the kernel monitor.
+
+Implementation is straightforward.
+
+```c
+if (tf->tf_trapno == T_BRKPT) {
+	monitor(tf);
+}
+```
+
+## Questions
+
+> 3. The break point test case will either generate a break point exception or a general protection fault depending on how you initialized the break point entry in the IDT (i.e., your call to SETGATE from trap_init). Why? How do you need to set it up in order to get the breakpoint exception to work as specified above and what incorrect setup would cause it to trigger a general protection fault?
+
+If the privilege level of the corresponding IDT entry is not set to 3, then `int $3` will generate a general protection fault. In order to allow user programs to use this interrupt you have to set its privilege level to 3 like this.
+
+```
+SETGATE(idt[T_BRKPT], true, GD_KT, handler_brkpt, 3);
+```
+
+> 4. What do you think is the point of these mechanisms, particularly in light of what the user/softint test program does?
+
+These mechanisms are used to protect the operating system from malicious or buggy user programs. Operating system should not be taken down because of this.
 
 ## Challenge
+
+> **Challenge!** Modify the JOS kernel monitor so that you can 'continue' execution from the current location (e.g., after the int3, if the kernel monitor was invoked via the breakpoint exception), and so that you can single-step one instruction at a time. You will need to understand certain bits of the EFLAGS register in order to implement single-stepping. 
+
+I further implemented continue and single step command for kernel monitor with the following code.
+
+```c
+int mon_continue(int argc, char **argv, struct Trapframe *tf) 
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
+
+	// Return to the current environment, which should be running.
+	assert(curenv && curenv->env_status == ENV_RUNNING);
+	env_run(curenv);
+}
+
+int mon_singlestep(int argc, char **argv, struct Trapframe *tf) 
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
+
+	uint32_t tf_mask = 0x100;
+	tf->tf_eflags ^= tf_mask; // flipping TF flag
+	if (tf->tf_eflags & tf_mask) {
+		cprintf("Enabled Single Step\n");
+	} else {
+		cprintf("Disabled Single Step\n");
+	}
+
+	return 0;
+}
+```
+
+The implementation of single step utilized the TF flag in the EFLAG control register. By setting it to 1, the processor will automatically generate a `T_DEBUG` interrupt (trap number 1).
+
+To test these commands, I have rewritten `user/breakpoint.c` to the following:
+
+```c
+#include <inc/lib.h>
+
+void umain(int argc, char **argv)
+{
+	asm volatile("int $3");
+	asm volatile("addl %eax, %eax");
+	asm volatile("addl %eax, %eax");
+	asm volatile("addl %eax, %eax");
+	asm volatile("int $3");
+	asm volatile("addl %eax, %eax");
+}
+```
+
+Then we can use `continue` and `singlestep` command in the kernel monitor to control the execution of this program. Here is an example run (some output is omitted to make it clearer).
+
+```
+$ make run-breakpoint
+[00000000] new env 00001000
+Incoming TRAP frame at 0xefffffbc
+Triggered Breakpoint at 0x00800037
+TRAP frame at 0xf01d3000
+  trap 0x00000003 Breakpoint
+K> singlestep
+Enabled Single Step
+K> continue
+Incoming TRAP frame at 0xefffffbc
+Triggered Breakpoint at 0x00800039
+TRAP frame at 0xf01d3000
+  trap 0x00000001 Debug
+K> continue
+Incoming TRAP frame at 0xefffffbc
+Triggered Breakpoint at 0x0080003b
+TRAP frame at 0xf01d3000
+  trap 0x00000001 Debug
+K> singlestep
+Disabled Single Step
+K> continue
+Incoming TRAP frame at 0xefffffbc
+Triggered Breakpoint at 0x0080003e
+TRAP frame at 0xf01d3000
+  trap 0x00000003 Breakpoint
+K> continue
+Incoming TRAP frame at 0xefffffbc
+TRAP frame at 0xf01d3000
+  trap 0x00000030 System call
+[00001000] free env 00001000
+Destroyed the only environment - nothing more to do!
+```

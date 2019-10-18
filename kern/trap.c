@@ -88,7 +88,7 @@ trap_init(void)
 	SETGATE(idt[T_DIVIDE], true, GD_KT, handler_div, 0);
 	SETGATE(idt[T_DEBUG], true, GD_KT, handler_debug, 0);
 	SETGATE(idt[T_NMI], false, GD_KT, handler_nmi, 0);
-	SETGATE(idt[T_BRKPT], true, GD_KT, handler_brkpt, 0);
+	SETGATE(idt[T_BRKPT], true, GD_KT, handler_brkpt, 3);
 	SETGATE(idt[T_OFLOW], true, GD_KT, handler_oflow, 0);
 	SETGATE(idt[T_BOUND], true, GD_KT, handler_bound, 0);
 	SETGATE(idt[T_ILLOP], true, GD_KT, handler_illop, 0);
@@ -183,6 +183,14 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	if (tf->tf_trapno == T_PGFLT) {
+		page_fault_handler(tf);
+	}
+
+	if (tf->tf_trapno == T_BRKPT || tf->tf_trapno == T_DEBUG) {
+		cprintf("Triggered Breakpoint at 0x%08x\n", tf->tf_eip);
+		monitor(tf);
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

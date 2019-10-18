@@ -12,6 +12,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -26,7 +27,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "Display function backtrace info", mon_backtrace }
+	{ "backtrace", "Display function backtrace info", mon_backtrace },
+	{ "continue", "Continue executing current user program", mon_continue},
+	{ "singlestep", "Toggle single stepping for current user program", mon_singlestep}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -85,7 +88,37 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int
+mon_continue(int argc, char **argv, struct Trapframe *tf) 
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
 
+	// Return to the current environment, which should be running.
+	assert(curenv && curenv->env_status == ENV_RUNNING);
+	env_run(curenv);
+}
+
+int
+mon_singlestep(int argc, char **argv, struct Trapframe *tf)
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
+
+	uint32_t tf_mask = 0x100;
+	tf->tf_eflags ^= tf_mask; // flipping TF flag
+	if (tf->tf_eflags & tf_mask) {
+		cprintf("Enabled Single Step\n");
+	} else {
+		cprintf("Disabled Single Step\n");
+	}
+
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 

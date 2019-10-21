@@ -2,6 +2,31 @@
 
 ## Summary
 
+All exercise finished and questions answered. For challenge, I choose to do challenge 2, in which I implemented continue and single step features for my kernel monitor.
+
+The output of grading script is the following.
+
+```
+divzero: OK (1.5s) 
+softint: OK (1.0s) 
+badsegment: OK (1.9s) 
+Part A score: 30/30
+
+faultread: OK (1.1s) 
+faultreadkernel: OK (1.7s) 
+faultwrite: OK (2.2s) 
+faultwritekernel: OK (1.2s) 
+breakpoint: OK (1.7s) 
+testbss: OK (2.1s) 
+hello: OK (2.1s) 
+buggyhello: OK (1.0s) 
+buggyhello2: OK (1.9s) 
+evilhello: OK (1.9s) 
+Part B score: 50/50
+
+Score: 80/80
+```
+
 ## Exercise 1
 
 > **Exercise 1.** Modify `mem_init()` in `kern/pmap.c` to allocate and map the `envs` array.
@@ -25,7 +50,7 @@ boot_map_region(kern_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U);
 
 Again, like previous programming exercises, the code to write is not that much, but you have to be extremely careful to avoid subtle bugs. And when there are bugs, it's hard and painful to debug.
 
-The implementation of `env_init()` is straightforward, but the iteration order is intentionally reversed so that the enviroment in the free list are the same order they are in the envs array.
+The implementation of `env_init()` is straightforward, but the iteration order is intentionally reversed so that the environment in the free list are the same order they are in the `envs` array.
 
 ```c
 // env_init()
@@ -36,7 +61,7 @@ for (int32_t i = NENV - 1; i >= 0; --i) {
 }
 ```
 
-The implementation of `env_setup_vm()` is a little bit tricky. My implementation just copies contents from kernel directory entries. There is no need to modifiy the permisson bits, though, if the permisson bits have been set correctly.
+The implementation of `env_setup_vm()` is a little bit tricky. My implementation just copies contents from kernel directory entries. There is no need to modify the permission bits, though, if the permission bits have been set correctly.
 
 ```c
 // env_setup_vm()
@@ -47,7 +72,7 @@ for (uint32_t i = PDX(UTOP); i < NPDENTRIES; ++i) {
 }
 ```
 
-To implement `load_icode()` and `region_alloc()`, we need to utilize functions previously implemented in `pmap.c`. Also, we have to deal with corner cases carefully. For `region_alloc()`, I have used `page_alloc()` and `page_insert()` implemented in Lab 2 and also applied a lot of checks to make this code more robust to subtle bugs. FOr `load_icode()`, the implementation is similar to the code in boot loader. For convenience, I first loaded environment page directory and later load kernel page directory back.
+To implement `load_icode()` and `region_alloc()`, we need to utilize functions previously implemented in `pmap.c`. Also, we have to deal with corner cases carefully. For `region_alloc()`, I have used `page_alloc()` and `page_insert()` implemented in Lab 2 and also applied a lot of checks to make this code more robust to subtle bugs. For `load_icode()`, the implementation is similar to the code in boot loader. For convenience, I first loaded environment page directory and later load kernel page directory back.
 
 The implementation of `env_create()` and `env_run()` can be done by just following the instructions.
 
@@ -84,11 +109,11 @@ I have to admit my implementation for this is very ugly, which I decide to impro
 
 > 1. What is the purpose of having an individual handler function for each exception/interrupt? (i.e., if all exceptions/interrupts were delivered to the same handler, what feature that exists in the current implementation could not be provided?)
 
-Without a seperate handler for each interrupt we have no way to know the interruption number. In x86 there is no hardware mechanism for that, so the operating system has to do this.
+Without a separate handler for each interrupt we have no way to know the interruption number. In x86 there is no hardware mechanism for that, so the operating system has to do this.
 
 > 2. Did you have to do anything to make the `user/softint` program behave correctly? The grade script expects it to produce a general protection fault (trap 13), but softint's code says `int $14`. Why should this produce interrupt vector 13? What happens if the kernel actually allows softint's `int $14` instruction to invoke the kernel's page fault handler (which is interrupt vector 14)?
 
-I have not did anything special to make this program behave correctly, because I have set the privilege level of all interruption handler except  syscall and breakpoint to be 0, so any user program that uses `int $14` will trigger an general protection fault. If the user program is allowed to use `int` to trigger interrupts other than system calls, malicious or buggy programs can easily destory the whole system. 
+I have not did anything special to make this program behave correctly, because I have set the privilege level of all interruption handler except syscall and breakpoint to be 0, so any user program that uses `int $14` will trigger an general protection fault. If the user program is allowed to use `int` to trigger interrupts other than system calls, malicious or buggy programs can easily destroy the whole system. 
 
 ## Exercise 5
 
@@ -224,7 +249,7 @@ Destroyed the only environment - nothing more to do!
 
 > **Exercise 7.** Add a handler in the kernel for interrupt vector T_SYSCALL. You will have to edit kern/trapentry.S and kern/trap.c's trap_init(). You also need to change trap_dispatch() to handle the system call interrupt by calling syscall() (defined in kern/syscall.c) with the appropriate arguments, and then arranging for the return value to be passed back to the user process in %eax. Finally, you need to implement syscall() in kern/syscall.c. Make sure syscall() returns -E_INVAL if the system call number is invalid. You should read and understand lib/syscall.c (especially the inline assembly routine) in order to confirm your understanding of the system call interface. Handle all the system calls listed in inc/syscall.h by invoking the corresponding kernel function for each call. 
 
-To implement syscall, we have to understand the following inline assembly.
+To implement system call, we have to understand the following in-line assembly.
 
 ```c
 asm volatile("int %1\n"
@@ -239,7 +264,7 @@ asm volatile("int %1\n"
 		     : "cc", "memory");
 ```
 
-We need to know that this inline assembly has assigned system call number and arguments to these registers, and we can read these registers in kernel from the trap frame like this. We can also return the system call return value by setting `%eax` register in the trap frame.
+We need to know that this in-line assembly has assigned system call number and arguments to these registers, and we can read these registers in kernel from the trap frame like this. We can also return the system call return value by setting `%eax` register in the trap frame.
 
 ```c
 if (tf->tf_trapno == T_SYSCALL) {
@@ -252,7 +277,7 @@ if (tf->tf_trapno == T_SYSCALL) {
 }
 ```
 
-The implementation of the real system calls is fairly straighforward.
+The implementation of the real system calls is fairly straightforward.
 
 ```c
 switch (syscallno) {
@@ -288,7 +313,7 @@ VPN range     Entry         Flags        Physical page
   [eec00-ef3ff]  PTE[000-3ff] -------U-P 001d3-005d2 00193-00592
 ```
 
-So there is a hidden bug from Lab 2, in `pgdir_walk()`! Although the comments say that we can make permissions in page directory entry more permissive, I have missed to assign `PTE_U` flag to each diectory entry. Therefore I made the following modification.
+So there is a hidden bug from Lab 2, in `pgdir_walk()`! Although the comments say that we can make permissions in page directory entry more permissive, I have missed to assign `PTE_U` flag to each directory entry. Therefore I made the following modification.
 
 ```c
 pgdir[pdx] = page2pa(pi) | PTE_P | PTE_W | PTE_U;
@@ -296,3 +321,99 @@ pgdir[pdx] = page2pa(pi) | PTE_P | PTE_W | PTE_U;
 
 Then the `hello` program can pass the test.
 
+## Exercise 9
+
+> **Exercise 9.** Change `kern/trap.c` to panic if a page fault happens in kernel mode.
+
+```c
+if ((tf->tf_cs & 3) == 0) {
+	panic("Page fault in kernel modes!\n");
+}
+```
+
+> Read `user_mem_assert` in `kern/pmap.c` and implement `user_mem_check` in that same file.
+
+```c
+int user_mem_check(struct Env *env, const void *va, size_t len, int perm)
+{
+	// LAB 3: Your code here.
+	if ((uintptr_t)va + len > ULIM) {
+		user_mem_check_addr = (uintptr_t)va;
+		return -E_FAULT;
+	}
+
+	uintptr_t addr_begin = ROUNDDOWN((uintptr_t)va, PGSIZE);
+	uintptr_t addr_end = ROUNDUP((uintptr_t)va + len, PGSIZE);
+	pde_t *pgdir = env->env_pgdir;
+	for (uintptr_t addr = addr_begin; addr < addr_end; addr += PGSIZE) {
+		bool ok = true;
+		pde_t *pde = &pgdir[PDX(addr)];
+		pte_t *pte = pgdir_walk(pgdir, (void*)addr, false);
+	
+		if (!pte || !(*pte & perm) || !(*pde & perm)) {
+			user_mem_check_addr = MAX((uintptr_t)va, addr);
+			return -E_FAULT;
+		}
+	}
+
+	return 0;
+}
+```
+
+> Change `kern/syscall.c` to sanity check arguments to system calls.
+
+```c
+user_mem_assert(curenv, s, len, PTE_U);
+```
+
+> Boot your kernel, running `user/buggyhello`. The environment should be destroyed, and the kernel should not panic.
+
+The output of my kernel is
+
+```
+[00000000] new env 00001000
+Incoming TRAP frame at 0xefffffbc
+Incoming TRAP frame at 0xefffffbc
+[00001000] user_mem_check assertion failure for va 00000001
+[00001000] free env 00001000
+Destroyed the only environment - nothing more to do!
+```
+
+> Finally, change `debuginfo_eip` in `kern/kdebug.c` to call `user_mem_check` on `usd`, `stabs`, and `stabst`r. If you now run `user/breakpoint`, you should be able to run `backtrace` from the kernel monitor and see the `backtrace` traverse into `lib/libmain.c` before the kernel panics with a page fault. What causes this page fault? You don't need to fix it, but you should understand why it happens. 
+
+The output of my `backtrace` command is the following.
+
+```
+K> backtrace
+Stack backtrace:
+ebp efffff00 eip f0100cd8 args 00000001 efffff28 f01d3000 00000008 f0106c70
+             kern/monitor.c:181: monitor+342
+ebp efffff80 eip f01046a0 args f01d3000 00800037 eebfd000 00000082 00001000
+             kern/trap.c:193: trap+334
+ebp efffffb0 eip f010476e args efffffbc 00000000 00000000 eebfdfc0 efffffdc
+             kern/syscall.c:69: syscall+0
+ebp eebfdfc0 eip 00800090 args 00000000 00000000 eebfdff0 00800061 00000000
+             lib/libmain.c:26: libmain+78
+ebp eebfdff0 eip 00800031 args 00000000 00000000Incoming TRAP frame at 0xeffffe74
+kernel panic at kern/trap.c:267: Page fault in kernel modes!
+
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+```
+
+The page fault is caused by the fact that `%ebp` has reached the top of user stack but is not zero, so the `backtrace` command will continue executing beyond user stack into empty memory, so it will cause a kernel page fault.
+
+## Exercise 10
+
+> **Exercise 10.** Boot your kernel, running `user/evilhello`. The environment should be destroyed, and the kernel should not panic.
+
+The output of my kernel is
+
+```
+[00000000] new env 00001000
+Incoming TRAP frame at 0xefffffbc
+Incoming TRAP frame at 0xefffffbc
+[00001000] user_mem_check assertion failure for va f010000c
+[00001000] free env 00001000
+Destroyed the only environment - nothing more to do!
+```

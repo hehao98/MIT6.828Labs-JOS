@@ -219,8 +219,6 @@ relocated:
 
 ## Challenge
 
-
-
 > **Challenge!** Extend the JOS kernel monitor with commands to:
 >
 > Display in a useful and easy-to-read format all of the physical page mappings (or lack thereof) that apply to a particular range of virtual/linear addresses in the currently active address space. For example, you might enter 'showmappings 0x3000 0x5000' to display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses 0x3000, 0x4000, and 0x5000.

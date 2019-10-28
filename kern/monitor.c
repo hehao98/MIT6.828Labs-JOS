@@ -6,11 +6,13 @@
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/types.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +27,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display function backtrace info", mon_backtrace },
+	{ "continue", "Continue executing current user program", mon_continue},
+	{ "singlestep", "Toggle single stepping for current user program", mon_singlestep}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -58,11 +63,62 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	cprintf("Stack backtrace:\n");
+
+	uint32_t ebp = read_ebp();
+	while (ebp != 0) {
+		// Print stack info
+		uint32_t *p = (uint32_t *) ebp;
+		uint32_t eip = p[1];
+		cprintf("ebp %08x eip %08x args", ebp, eip);
+		for (int i = 0; i < 5; ++i) {
+			cprintf(" %08x", p[i + 2]);
+		}
+		cprintf("\n\t");
+
+		// Print context info
+		struct Eipdebuginfo info;
+		int ret = debuginfo_eip(eip, &info);
+		cprintf("%s:%d: %.*s+%d\n", info.eip_file, info.eip_line,
+			info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
+
+		ebp = *p;
+	}
+
 	return 0;
 }
 
+int
+mon_continue(int argc, char **argv, struct Trapframe *tf) 
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
 
+	// Return to the current environment, which should be running.
+	assert(curenv && curenv->env_status == ENV_RUNNING);
+	env_run(curenv);
+}
+
+int
+mon_singlestep(int argc, char **argv, struct Trapframe *tf)
+{
+	if (tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG) {
+		cprintf("The monitor is not invoked from a breakpoint/debug trap!\n");
+		return -1;
+	}
+
+	uint32_t tf_mask = 0x100;
+	tf->tf_eflags ^= tf_mask; // flipping TF flag
+	if (tf->tf_eflags & tf_mask) {
+		cprintf("Enabled Single Step\n");
+	} else {
+		cprintf("Disabled Single Step\n");
+	}
+
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 

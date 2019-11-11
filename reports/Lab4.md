@@ -213,12 +213,12 @@ static int sys_env_set_pgfault_upcall(envid_t envid, void *func)
 ```c
 struct UTrapframe *utf;
 if (curenv->env_pgfault_upcall != NULL) {
-	user_mem_assert(curenv, (void*)(UXSTACKTOP - PGSIZE), PGSIZE,PTE_W);
 	if (UXSTACKTOP - PGSIZE <= tf->tf_esp && tf->tf_esp <=UXSTACKTOP - 1) {
 		utf = (struct UTrapframe *)(tf->tf_esp - sizeof(structUTrapframe) - 4);
 	} else {	
 		utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(structUTrapframe));
 	}
+	user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_W);
 	if ((uintptr_t)utf > UXSTACKTOP - PGSIZE) {
 		utf->utf_eflags = tf->tf_eflags;
 		utf->utf_esp = tf->tf_esp;
@@ -239,6 +239,8 @@ env_destroy(curenv);
 ```
 
 In my implementation, the kernel will check user exception stack memory if `cur->env_pgfault_upcall` is not null, and write to this stack. The position of this user trap frame depends on whether it is a recursive trap or not. When user environment run out of space on the exception stack, the kernel will just kill this environment.
+
+One of the funny thing is that I have to write the `user_mem_assert()` in exactly the way above in order to pass tests. The tests do not allow other kind of memery assert (like asserting the availability of the whole exception stack page).
 
 ## Exercise 10
 
@@ -276,3 +278,14 @@ sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
 ```
 
 It's ok not to check the return values of these system calls here, since if any of them fails, the environment will just be killed. Also, the page fault upcall should be set to `_pgfault_upcall`, not `handler`.
+
+## Exercise 12
+
+> **Exercise 12.** Implement fork, duppage and pgfault in lib/fork.c. 
+
+The implementation of fork in user space is tricky. First, I have to implement the page fault handler as specified in the comments. I have to round down `addr` for using it in the code or it may cause subtle bugs that are very hard to locate.
+
+Next, in the `duppage()` function, I need to copy the page mapping carefully using `sys_page_map()` on both the source environment and the destination environment.
+
+Finally, in the `fork()` function, I have to do all the actual page mapping and copying of other information.
+

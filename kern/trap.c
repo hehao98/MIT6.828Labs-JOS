@@ -371,13 +371,13 @@ page_fault_handler(struct Trapframe *tf)
 	struct UTrapframe *utf;
 
 	if (curenv->env_pgfault_upcall != NULL) {
-		user_mem_assert(curenv, (void*)(UXSTACKTOP - PGSIZE), PGSIZE, PTE_W);
-
 		if (UXSTACKTOP - PGSIZE <= tf->tf_esp && tf->tf_esp <= UXSTACKTOP - 1) {
 			utf = (struct UTrapframe *)(tf->tf_esp - sizeof(struct UTrapframe) - 4);
 		} else {	
 			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
 		}
+
+		user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_W);
 
 		if ((uintptr_t)utf > UXSTACKTOP - PGSIZE) {
 			utf->utf_eflags = tf->tf_eflags;

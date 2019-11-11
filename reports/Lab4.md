@@ -188,3 +188,91 @@ After finishing all the specified system calls, the output of `user/dumbfork` ar
 [00001001] exiting gracefully
 [00001001] free env 00001001
 ```
+
+## Exercise 8
+
+> **Exercise 8.** Implement the sys_env_set_pgfault_upcall system call. Be sure to enable permission checking when looking up the environment ID of the target environment, since this is a "dangerous" system call. 
+
+```c
+static int sys_env_set_pgfault_upcall(envid_t envid, void *func)
+{
+	struct Env *e;
+	int32_t ret;
+	if ((ret = envid2env(envid, &e, 1)) < 0) {
+		return ret; // -E_BAD_ENV
+	}
+	e->env_pgfault_upcall = func;
+	return 0;
+}
+```
+
+## Exercise 9
+
+> **Exercise 9.** Implement the code in page_fault_handler in kern/trap.c required to dispatch page faults to the user-mode handler. Be sure to take appropriate precautions when writing into the exception stack. (What happens if the user environment runs out of space on the exception stack?) 
+
+```c
+struct UTrapframe *utf;
+if (curenv->env_pgfault_upcall != NULL) {
+	user_mem_assert(curenv, (void*)(UXSTACKTOP - PGSIZE), PGSIZE,PTE_W);
+	if (UXSTACKTOP - PGSIZE <= tf->tf_esp && tf->tf_esp <=UXSTACKTOP - 1) {
+		utf = (struct UTrapframe *)(tf->tf_esp - sizeof(structUTrapframe) - 4);
+	} else {	
+		utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(structUTrapframe));
+	}
+	if ((uintptr_t)utf > UXSTACKTOP - PGSIZE) {
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_esp = tf->tf_esp;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_err = tf->tf_err;
+		utf->utf_fault_va = fault_va;
+		curenv->env_tf.tf_esp = (uintptr_t)utf;
+		curenv->env_tf.tf_eip = (uintptr_tcurenv->env_pgfault_upcall;
+		env_run(curenv);
+	}
+}
+// Destroy the environment that caused the fault.
+cprintf("[%08x] user fault va %08x ip %08x\n",
+	curenv->env_id, fault_va, tf->tf_eip);
+print_trapframe(tf);
+env_destroy(curenv);
+```
+
+In my implementation, the kernel will check user exception stack memory if `cur->env_pgfault_upcall` is not null, and write to this stack. The position of this user trap frame depends on whether it is a recursive trap or not. When user environment run out of space on the exception stack, the kernel will just kill this environment.
+
+## Exercise 10
+
+> **Exercise 10.** Implement the _pgfault_upcall routine in lib/pfentry.S. The interesting part is returning to the original point in the user code that caused the page fault. You'll return directly there, without going back through the kernel. The hard part is simultaneously switching stacks and re-loading the EIP. 
+
+First, set up return address in the original stack.
+
+```
+movl 48(%esp), %eax // trap-time esp
+subl $4, %eax
+movl 40(%esp), %ebx // trap-time eip
+movl %ebx, (%eax)
+movl %eax, 48(%esp)
+```
+
+Then restore all registers and return. `%esp` can be safely modified before `EFLAGS` is restored.
+
+```
+addl $8, %esp
+popal
+addl $4, %esp
+popfl
+popl %esp
+ret
+```
+
+## Exercise 11
+
+> **Exercise 11.** Finish set_pgfault_handler() in lib/pgfault.c. 
+
+```c
+envid_t envid = sys_getenvid();
+sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P);
+sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+```
+
+It's ok not to check the return values of these system calls here, since if any of them fails, the environment will just be killed. Also, the page fault upcall should be set to `_pgfault_upcall`, not `handler`.

@@ -2,6 +2,34 @@
 
 ## Summary
 
+All exercises finished and all questions answered. The output of make grade is the following.
+
+```
+dumbfork: OK (1.0s) 
+Part A score: 5/5
+
+faultread: OK (1.0s) 
+faultwrite: OK (1.8s) 
+faultdie: OK (1.2s) 
+faultregs: OK (1.7s) 
+faultalloc: OK (2.1s) 
+faultallocbad: OK (2.2s) 
+faultnostack: OK (1.8s) 
+faultbadhandler: OK (2.1s) 
+faultevilhandler: OK (2.1s) 
+forktree: OK (1.7s) 
+Part B score: 50/50
+
+spin: OK (2.2s) 
+stresssched: OK (2.3s) 
+sendpage: OK (1.6s) 
+pingpong: OK (2.1s) 
+primes: OK (2.2s) 
+Part C score: 25/25
+
+Score: 80/80
+```
+
 ## Exercise 1
 
 > **Exercise 1.** Implement mmio_map_region in kern/pmap.c. To see how this is used, look at the beginning of lapic_init in kern/lapic.c. You'll have to do the next exercise, too, before the tests for mmio_map_region will run. 
@@ -309,3 +337,57 @@ if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 ```
 
 I have also run a regression test, but found that `stresssched` is not working. After debugging I found that it's because I have not set `thisenv` correctly in `lib/fork.c` for the child process.
+
+## Exercise 15
+
+> **Exercise 15.** Implement sys_ipc_recv and sys_ipc_try_send in kern/syscall.c. Read the comments on both before implementing them, since they have to work together. When you call envid2env in these routines, you should set the checkperm flag to 0, meaning that any environment is allowed to send IPC messages to any other environment, and the kernel does no special permission checking other than verifying that the target envid is valid. 
+
+When implementing IPC, you have to follow the instructions in the comments carefully. The `sys_ipc_recv()` is interesting because it never returns. When the environment finally receives something, the kernel will run it in `sched_yield()` to user mode, so you have to manually set its return value to zero in the `sys_ipc_recv` implenetation.
+
+```c
+static int sys_ipc_recv(void *dstva)
+{
+	// LAB 4: Your code here.
+	if ((uintptr_t)dstva < UTOP && (uintptr_t)dstva % PGSIZE != 0) {
+		return -E_INVAL;
+	}
+	if ((uintptr_t)dstva < UTOP)
+		curenv->env_ipc_dstva = dstva;
+	curenv->env_ipc_recving = true;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	curenv->env_tf.tf_regs.reg_eax = 0;
+	sys_yield();
+	return 0;
+}
+```
+
+After implementing this exercise I can achieve full score by running make grade.
+
+```
+dumbfork: OK (1.0s) 
+Part A score: 5/5
+
+faultread: OK (1.0s) 
+faultwrite: OK (1.8s) 
+faultdie: OK (1.2s) 
+faultregs: OK (1.7s) 
+faultalloc: OK (2.1s) 
+faultallocbad: OK (2.2s) 
+faultnostack: OK (1.8s) 
+faultbadhandler: OK (2.1s) 
+faultevilhandler: OK (2.1s) 
+forktree: OK (1.7s) 
+Part B score: 50/50
+
+spin: OK (2.2s) 
+stresssched: OK (2.3s) 
+sendpage: OK (1.6s) 
+pingpong: OK (2.1s) 
+primes: OK (2.2s) 
+Part C score: 25/25
+
+Score: 80/80
+```
+
+## Challenge!
+

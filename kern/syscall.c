@@ -126,6 +126,17 @@ sys_env_set_status(envid_t envid, int status)
 	return 0;
 }
 
+static int
+sys_env_set_priority(envid_t envid, uint32_t priority) {
+	struct Env *e;
+	int32_t ret;
+	if ((ret = envid2env(envid, &e, 1)) < 0) {
+		return ret; // -E_BAD_ENV
+	}
+	e->env_priority = priority;
+	return 0;
+}
+
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
 // Env's 'env_pgfault_upcall' field.  When 'envid' causes a page fault, the
 // kernel will push a fault record onto the exception stack, then branch to
@@ -425,6 +436,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_try_send(a1, a2, (void*)a3, a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void*)a1);
+	case SYS_env_set_priority:
+		return sys_env_set_priority(a1, a2);
 	default:
 		return -E_INVAL;
 	}

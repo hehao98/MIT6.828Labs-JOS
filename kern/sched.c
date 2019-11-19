@@ -29,17 +29,27 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-	envid_t curid = curenv ? (ENVX(curenv->env_id) + 1) % NENV : 0;
+	envid_t curid = curenv ? (ENVX(curenv->env_id)) % NENV : 0;
+	envid_t id2run = -1;
+
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		id2run = curid;
+	}
+	
 	for (uint32_t i = 0; i < NENV; ++i) {
 		envid_t id = (curid + i) % NENV;
 		if (envs[id].env_status == ENV_RUNNABLE) {
-			// cprintf("cpunum: %d running %d\n", cpunum(), id);
-			env_run(&envs[id]);
+			if (id2run == -1
+				|| envs[id].env_priority >= envs[id2run].env_priority) {
+				id2run = id;
+			}
 		}
 	}
 
-	if (curenv && curenv->env_status == ENV_RUNNING) {
-		env_run(curenv);
+	if (id2run != -1) {
+		// cprintf("cpunum: %d running %d(priority: %d)\n", 
+		 	// cpunum(), id2run, envs[id2run].env_priority);
+		env_run(&envs[id2run]);
 	}
 
 	// sched_halt never returns

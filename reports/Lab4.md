@@ -2,7 +2,7 @@
 
 ## Summary
 
-All exercises finished and all questions answered. The output of make grade is the following.
+All exercises finished and all questions answered. The output of `make grade` is the following.
 
 ```
 dumbfork: OK (1.0s) 
@@ -29,6 +29,29 @@ Part C score: 25/25
 
 Score: 80/80
 ```
+
+For challenge, I choose to implement fixed priority scheduling. I also implemented a a user program that set itself to higher priority and then creates a child process. We can see that after that the child process can only be executed after the parent process has finished.
+
+```
+[00000000] new env 00001000
+[00001000] new env 00001001
+Spinning parent...
+Spinning parent...
+Spinning parent...
+Spinning parent...
+Spinning parent...
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Spinning child...
+Spinning child...
+Spinning child...
+Spinning child...
+Spinning child...
+[00001001] exiting gracefully
+[00001001] free env 00001001
+```
+
+For more detailed information please see the challenge section of this report.
 
 ## Exercise 1
 
@@ -88,7 +111,7 @@ static void mem_init_mp(void)
 
 > **Exercise 4.** The code in trap_init_percpu() (kern/trap.c) initializes the TSS and TSS descriptor for the BSP. It worked in Lab 3, but is incorrect when running on other CPUs. Change the code so that it can work on all CPUs. (Note: your new code should not use the global ts variable any more.) 
 
-What we need to do is to replace existing code in `trap_init_percpu()` to make it work in any CPU. We have to replace `ts` with `thiscpu->cpu_ts`, change the index of gdt to `(GD_TSS0 >> 3) + cpunum()]` to set this CPU's TSS segment. Finally, we have to load this TSS segment for this CPU using `ltr` instruction.
+What we need to do is to replace existing code in `trap_init_percpu()` to make it work in any CPU. We have to replace `ts` with `thiscpu->cpu_ts`, change the index of GDT to `(GD_TSS0 >> 3) + cpunum()]` to set this CPU's TSS segment. Finally, we have to load this TSS segment for this CPU using `ltr` instruction.
 
 ```c
 void trap_init_percpu(void)
@@ -174,7 +197,7 @@ The kernel have to ensure all the registers of a user environment are saved prop
 
 > **Exercise 7.** Implement the system calls described above in kern/syscall.c and make sure syscall() calls them. You will need to use various functions in kern/pmap.c and kern/env.c, particularly envid2env(). For now, whenever you call envid2env(), pass 1 in the checkperm parameter. Be sure you check for any invalid system call arguments, returning -E_INVAL in that case. Test your JOS kernel with user/dumbfork and make sure it works before proceeding. 
 
-What we need to do is to implement a set of system calls using the funtions that we have already implemented in Lab 2 and Lab 3. Since we cannot make any assumption on how user environments use our system call, we have to do a lot of sanity checks on parameters to ensure bad system call will not harm our OS. We can achieve this by following the instructions in `syscall.c`.
+What we need to do is to implement a set of system calls using the functions that we have already implemented in Lab 2 and Lab 3. Since we cannot make any assumption on how user environments use our system call, we have to do a lot of sanity checks on parameters to ensure bad system call will not harm our OS. We can achieve this by following the instructions in `syscall.c`.
 
 After finishing all the specified system calls, the output of `user/dumbfork` are the following with 1 CPU.
 
@@ -268,7 +291,7 @@ env_destroy(curenv);
 
 In my implementation, the kernel will check user exception stack memory if `cur->env_pgfault_upcall` is not null, and write to this stack. The position of this user trap frame depends on whether it is a recursive trap or not. When user environment run out of space on the exception stack, the kernel will just kill this environment.
 
-One of the funny thing is that I have to write the `user_mem_assert()` in exactly the way above in order to pass tests. The tests do not allow other kind of memery assert (like asserting the availability of the whole exception stack page).
+One of the funny thing is that I have to write the `user_mem_assert()` in exactly the way above in order to pass tests. The tests do not allow other kind of memory assert (like asserting the availability of the whole exception stack page).
 
 ## Exercise 10
 
@@ -305,7 +328,7 @@ sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P);
 sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
 ```
 
-It's ok not to check the return values of these system calls here, since if any of them fails, the environment will just be killed. Also, the page fault upcall should be set to `_pgfault_upcall`, not `handler`.
+It's ok not to check the return values of these system calls here, since if any of them fails, the environment will just be killed. Also, the page fault up call should be set to `_pgfault_upcall`, not `handler`.
 
 ## Exercise 12
 
@@ -342,7 +365,7 @@ I have also run a regression test, but found that `stresssched` is not working. 
 
 > **Exercise 15.** Implement sys_ipc_recv and sys_ipc_try_send in kern/syscall.c. Read the comments on both before implementing them, since they have to work together. When you call envid2env in these routines, you should set the checkperm flag to 0, meaning that any environment is allowed to send IPC messages to any other environment, and the kernel does no special permission checking other than verifying that the target envid is valid. 
 
-When implementing IPC, you have to follow the instructions in the comments carefully. The `sys_ipc_recv()` is interesting because it never returns. When the environment finally receives something, the kernel will run it in `sched_yield()` to user mode, so you have to manually set its return value to zero in the `sys_ipc_recv` implenetation.
+When implementing IPC, you have to follow the instructions in the comments carefully. The `sys_ipc_recv()` is interesting because it never returns. When the environment finally receives something, the kernel will run it in `sched_yield()` to user mode, so you have to manually set its return value to zero in the `sys_ipc_recv` implementation.
 
 ```c
 static int sys_ipc_recv(void *dstva)
@@ -391,3 +414,274 @@ Score: 80/80
 
 ## Challenge!
 
+> **Challenge!** Add a less trivial scheduling policy to the kernel, such as a fixed-priority scheduler that allows each environment to be assigned a priority and ensures that higher-priority environments are always chosen in preference to lower-priority environments.
+
+I choose to implement fix priority scheduling as described above. So I have done the following things:
+
+1. Add a new field in `struct Env` called `env_priority`
+2. Initialize this field to 0 when creating process
+3. Add a new system call `sys_env_set_priority` to set priority of a given process
+4. Modify `kern/sched.c` to implement fix priority scheduling
+5. Create a test program to test that the new scheduler can handle priority values.
+6. Run `make grade` again to ensure that the new scheduler can still handle all the test programs correctly.
+
+The new scheduling code is this
+
+```c
+void sched_yield(void)
+{
+	struct Env *idle;
+	envid_t curid = curenv ? (ENVX(curenv->env_id)) % NENV : 0;
+	envid_t id2run = -1;
+
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		id2run = curid;
+	}
+	
+	for (uint32_t i = 0; i < NENV; ++i) {
+		envid_t id = (curid + i) % NENV;
+		if (envs[id].env_status == ENV_RUNNABLE) {
+			if (id2run == -1
+				|| envs[id].env_priority >= envs[id2run].env_priority) {
+				id2run = id;
+			}
+		}
+	}
+
+	if (id2run != -1) {
+		// cprintf("cpunum: %d running %d(priority: %d)\n", 
+		 	// cpunum(), id2run, envs[id2run].env_priority);
+		env_run(&envs[id2run]);
+	}
+
+	// sched_halt never returns
+	sched_halt();
+}
+```
+
+The user test program I used is this
+
+```c
+#include <inc/lib.h>
+
+void
+umain(int argc, char **argv)
+{
+	envid_t child;
+    int ret;
+
+    ret = sys_env_set_priority(thisenv->env_id, 1);
+     if (ret < 0) {
+        panic("sys_env_set_priority: failed\n");
+    }
+
+	if ((child = fork()) == 0) {
+		// child
+        for (int i = 0; i < 5; ++i) {
+		    cprintf("Spinning child...\n");
+            sys_yield();
+        }
+        return;
+	}
+
+	// parent
+    for (int i = 0; i < 5; ++i) {
+        cprintf("Spinning parent...\n");
+        sys_yield();
+    }
+    return;
+}
+```
+
+By running `make run-priority` we can see this
+
+```
+hehao@hehao-lenovo:~/Desktop/MIT6.828/Labs$ make run-priority
+make[1]: Entering directory '/home/hehao/Desktop/MIT6.828/Labs'
++ cc kern/init.c
++ ld obj/kern/kernel
++ mk obj/kern/kernel.img
+make[1]: Leaving directory '/home/hehao/Desktop/MIT6.828/Labs'
+qemu-system-i386 -drive file=obj/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::26000 -D qemu.log -smp 1 
+Physical memory: 131072K available, base = 640K, extended = 130432K
+boot_alloc(): nextfree=f0284000
+boot_alloc(): nextfree=f02c4000
+boot_alloc(): nextfree=f02e4000
+boot_alloc(): nextfree=f02e4000
+boot_alloc(): nextfree=f02e4000
+check_page_free_list() succeeded!
+check_page_alloc() succeeded!
+check_page() succeeded!
+check_kern_pgdir() succeeded!
+boot_alloc(): nextfree=f02e4000
+check_page_free_list() succeeded!
+check_page_installed_pgdir() succeeded!
+SMP: CPU 0 found 1 CPU(s)
+enabled interrupts: 1 2
+[00000000] new env 00001000
+[00001000] new env 00001001
+Spinning parent...
+Spinning parent...
+Spinning parent...
+Spinning parent...
+Spinning parent...
+[00001000] exiting gracefully
+[00001000] free env 00001000
+Spinning child...
+Spinning child...
+Spinning child...
+Spinning child...
+Spinning child...
+[00001001] exiting gracefully
+[00001001] free env 00001001
+No runnable environments in the system!
+Welcome to the JOS kernel monitor!
+Type 'help' for a list of commands.
+K> 
+```
+
+We can see that the parent execute before the child because its priority is higher. You can run this over and over and still get this result.
+
+Then run `make grade` to ensure that everything else is still working.
+
+```
+hehao@hehao-lenovo:~/Desktop/MIT6.828/Labs$ make grade
+make clean
+make[1]: Entering directory '/home/hehao/Desktop/MIT6.828/Labs'
+rm -rf obj .gdbinit jos.in qemu.log
+make[1]: Leaving directory '/home/hehao/Desktop/MIT6.828/Labs'
+./grade-lab4 
+make[1]: Entering directory '/home/hehao/Desktop/MIT6.828/Labs'
++ as kern/entry.S
++ cc kern/entrypgdir.c
++ cc kern/init.c
++ cc kern/console.c
++ cc kern/monitor.c
++ cc kern/pmap.c
++ cc kern/env.c
++ cc kern/kclock.c
++ cc kern/picirq.c
++ cc kern/printf.c
++ cc kern/trap.c
++ as kern/trapentry.S
++ cc kern/sched.c
++ cc kern/syscall.c
++ cc kern/kdebug.c
++ cc lib/printfmt.c
++ cc lib/readline.c
++ cc lib/string.c
++ as kern/mpentry.S
++ cc kern/mpconfig.c
++ cc kern/lapic.c
++ cc kern/spinlock.c
++ cc[USER] lib/console.c
++ cc[USER] lib/libmain.c
++ cc[USER] lib/exit.c
++ cc[USER] lib/panic.c
++ cc[USER] lib/printf.c
++ cc[USER] lib/printfmt.c
++ cc[USER] lib/readline.c
++ cc[USER] lib/string.c
++ cc[USER] lib/syscall.c
++ cc[USER] lib/pgfault.c
++ as[USER] lib/pfentry.S
++ cc[USER] lib/fork.c
++ cc[USER] lib/ipc.c
++ ar obj/lib/libjos.a
+ar: creating obj/lib/libjos.a
++ cc[USER] user/hello.c
++ as[USER] lib/entry.S
++ ld obj/user/hello
++ cc[USER] user/buggyhello.c
++ ld obj/user/buggyhello
++ cc[USER] user/buggyhello2.c
++ ld obj/user/buggyhello2
++ cc[USER] user/evilhello.c
++ ld obj/user/evilhello
++ cc[USER] user/testbss.c
++ ld obj/user/testbss
++ cc[USER] user/divzero.c
++ ld obj/user/divzero
++ cc[USER] user/breakpoint.c
++ ld obj/user/breakpoint
++ cc[USER] user/softint.c
++ ld obj/user/softint
++ cc[USER] user/badsegment.c
++ ld obj/user/badsegment
++ cc[USER] user/faultread.c
++ ld obj/user/faultread
++ cc[USER] user/faultreadkernel.c
++ ld obj/user/faultreadkernel
++ cc[USER] user/faultwrite.c
++ ld obj/user/faultwrite
++ cc[USER] user/faultwritekernel.c
++ ld obj/user/faultwritekernel
++ cc[USER] user/idle.c
++ ld obj/user/idle
++ cc[USER] user/yield.c
++ ld obj/user/yield
++ cc[USER] user/dumbfork.c
++ ld obj/user/dumbfork
++ cc[USER] user/stresssched.c
++ ld obj/user/stresssched
++ cc[USER] user/faultdie.c
++ ld obj/user/faultdie
++ cc[USER] user/faultregs.c
++ ld obj/user/faultregs
++ cc[USER] user/faultalloc.c
++ ld obj/user/faultalloc
++ cc[USER] user/faultallocbad.c
++ ld obj/user/faultallocbad
++ cc[USER] user/faultnostack.c
++ ld obj/user/faultnostack
++ cc[USER] user/faultbadhandler.c
++ ld obj/user/faultbadhandler
++ cc[USER] user/faultevilhandler.c
++ ld obj/user/faultevilhandler
++ cc[USER] user/forktree.c
++ ld obj/user/forktree
++ cc[USER] user/sendpage.c
++ ld obj/user/sendpage
++ cc[USER] user/spin.c
++ ld obj/user/spin
++ cc[USER] user/fairness.c
++ ld obj/user/fairness
++ cc[USER] user/pingpong.c
++ ld obj/user/pingpong
++ cc[USER] user/pingpongs.c
++ ld obj/user/pingpongs
++ cc[USER] user/primes.c
++ ld obj/user/primes
++ cc[USER] user/priority.c
++ ld obj/user/priority
++ ld obj/kern/kernel
++ as boot/boot.S
++ cc -Os boot/main.c
++ ld boot/boot
+boot block is 415 bytes (max 510)
++ mk obj/kern/kernel.img
+make[1]: Leaving directory '/home/hehao/Desktop/MIT6.828/Labs'
+dumbfork: OK (1.4s) 
+Part A score: 5/5
+
+faultread: OK (2.0s) 
+faultwrite: OK (1.9s) 
+faultdie: OK (2.2s) 
+faultregs: OK (2.1s) 
+faultalloc: OK (1.8s) 
+faultallocbad: OK (2.1s) 
+faultnostack: OK (1.9s) 
+faultbadhandler: OK (2.1s) 
+faultevilhandler: OK (2.1s) 
+forktree: OK (2.0s) 
+Part B score: 50/50
+
+spin: OK (1.9s) 
+stresssched: OK (2.1s) 
+sendpage: OK (1.9s) 
+pingpong: OK (2.1s) 
+primes: OK (3.3s) 
+Part C score: 25/25
+
+Score: 80/80
+```

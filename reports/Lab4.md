@@ -289,3 +289,23 @@ Next, in the `duppage()` function, I need to copy the page mapping carefully usi
 
 Finally, in the `fork()` function, I have to do all the actual page mapping and copying of other information.
 
+## Exercise 13
+
+> **Exercise 13.** Modify kern/trapentry.S and kern/trap.c to initialize the appropriate entries in the IDT and provide handlers for IRQs 0 through 15. Then modify the code in env_alloc() in kern/env.c to ensure that user environments are always run with interrupts enabled. Also uncomment the sti instruction in sched_halt() so that idle CPUs unmask interrupts. 
+
+The implementation is just inserting and copy pasting a lot of interrupt handling functions. However, we have to set all IDT entry to be an interrupt gate, so that IF is reset when entering the kernel. Otherwise, the kernel will panic in `trap.c`!
+
+## Exercise 14
+
+> **Exercise 14.** Modify the kernel's trap_dispatch() function so that it calls sched_yield() to find and run a different environment whenever a clock interrupt takes place. 
+
+The code to be added is dead simple.
+
+```c
+if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+	lapic_eoi();
+	sched_yield();
+}
+```
+
+I have also run a regression test, but found that `stresssched` is not working. After debugging I found that it's because I have not set `thisenv` correctly in `lib/fork.c` for the child process.

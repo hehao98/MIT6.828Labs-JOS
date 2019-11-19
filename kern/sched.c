@@ -33,6 +33,7 @@ sched_yield(void)
 	for (uint32_t i = 0; i < NENV; ++i) {
 		envid_t id = (curid + i) % NENV;
 		if (envs[id].env_status == ENV_RUNNABLE) {
+			// cprintf("cpunum: %d running %d\n", cpunum(), id);
 			env_run(&envs[id]);
 		}
 	}
@@ -86,7 +87,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

@@ -124,7 +124,7 @@ fork(void)
 	}
 	
 	if (child == 0) { // child
-		thisenv = &envs[sys_getenvid()];
+		thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}
 

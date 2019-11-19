@@ -152,11 +152,10 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	// cprintf("SMP: CPU %d waiting lock\n", cpunum());
 	lock_kernel();
+	// cprintf("SMP: CPU %d scheduling\n", cpunum());
 	sched_yield();
-
-	// Remove this after you finish Exercise 6
-	for (;;);
 }
 
 /*

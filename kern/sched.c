@@ -30,6 +30,28 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+	envid_t curid = curenv ? (ENVX(curenv->env_id)) % NENV : 0;
+	envid_t id2run = -1;
+
+	if (curenv && curenv->env_status == ENV_RUNNING) {
+		id2run = curid;
+	}
+	
+	for (uint32_t i = 0; i < NENV; ++i) {
+		envid_t id = (curid + i) % NENV;
+		if (envs[id].env_status == ENV_RUNNABLE) {
+			if (id2run == -1
+				|| envs[id].env_priority >= envs[id2run].env_priority) {
+				id2run = id;
+			}
+		}
+	}
+
+	if (id2run != -1) {
+		// cprintf("cpunum: %d running %d(priority: %d)\n", 
+		 	// cpunum(), id2run, envs[id2run].env_priority);
+		env_run(&envs[id2run]);
+	}
 
 	// sched_halt never returns
 	sched_halt();
@@ -76,7 +98,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

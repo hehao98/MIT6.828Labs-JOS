@@ -133,6 +133,7 @@ lpt_putc(int c)
 static unsigned addr_6845;
 static uint16_t *crt_buf;
 static uint16_t crt_pos;
+static uint16_t color_flag = 0x0700; // default: white on black
 
 static void
 cga_init(void)
@@ -167,9 +168,7 @@ cga_init(void)
 static void
 cga_putc(int c)
 {
-	// if no attribute given, then use black on white
-	if (!(c & ~0xFF))
-		c |= 0x0700;
+	c |= color_flag;
 
 	switch (c & 0xff) {
 	case '\b':
@@ -481,4 +480,10 @@ iscons(int fdnum)
 {
 	// used by readline
 	return 1;
+}
+
+void
+set_color_info(uint16_t new_color)
+{
+	color_flag = new_color;
 }

@@ -100,6 +100,12 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 }
 
 int
+sys_env_set_priority(envid_t envid, uint32_t priority)
+{
+	return syscall(SYS_env_set_priority, 1, envid, priority, 0, 0, 0);
+}
+
+int
 sys_env_set_pgfault_upcall(envid_t envid, void *upcall)
 {
 	return syscall(SYS_env_set_pgfault_upcall, 1, envid, (uint32_t) upcall, 0, 0, 0);

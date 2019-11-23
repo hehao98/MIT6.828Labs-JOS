@@ -56,3 +56,19 @@ if ((r = sys_page_map(0, rounded_addr, 0, rounded_addr,
 		uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
 	panic("in flush_block(), sys_page_map: %e", r);
 ```
+
+## Exercise 3
+
+> **Exercise 3.** Use free_block as a model to implement alloc_block in fs/fs.c, which should find a free disk block in the bitmap, mark it used, and return the number of that block. When you allocate a block, you should immediately flush the changed bitmap block to disk with flush_block, to help file system consistency.
+
+We should set the corresponding bit to zero if we want to mark one block in use.
+
+```c
+for (uint32_t i = 0; i < super->s_nblocks; ++i) {
+	if ((bitmap[i / 32] & (1 << (i % 32))) == 0) continue;
+	bitmap[i / 32] &= ~(1 << (i % 32));
+	flush_block(bitmap + i / 32);
+	return i;
+}
+return -E_NO_DISK;
+```

@@ -75,7 +75,7 @@ KERN_BINFILES +=	user/idle \
 			user/fairness \
 			user/pingpong \
 			user/pingpongs \
-			user/primes
+			user/primes \
 			user/priority
 
 # Binary files for LAB5

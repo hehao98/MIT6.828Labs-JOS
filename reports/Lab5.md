@@ -72,3 +72,8 @@ for (uint32_t i = 0; i < super->s_nblocks; ++i) {
 }
 return -E_NO_DISK;
 ```
+
+## Exercise 4
+
+> **Exercise 4.** Implement file_block_walk and file_get_block. file_block_walk maps from a block offset within a file to the pointer for that block in the struct File or the indirect block, very much like what pgdir_walk did for page tables. file_get_block goes one step further and maps to the actual disk block, allocating a new one if necessary. 
+

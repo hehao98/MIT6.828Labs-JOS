@@ -77,7 +77,7 @@ return -E_NO_DISK;
 
 > **Exercise 4.** Implement file_block_walk and file_get_block. file_block_walk maps from a block offset within a file to the pointer for that block in the struct File or the indirect block, very much like what pgdir_walk did for page tables. file_get_block goes one step further and maps to the actual disk block, allocating a new one if necessary. 
 
-When implementing these two functions, it's important to keep in mind that the `struct File` are stroing **block numbers**, and you have to convert them to address in order to access the real block.
+When implementing these two functions, it's important to keep in mind that the `struct File` are storing **block numbers**, and you have to convert them to address in order to access the real block.
 
 ```c
 static int
@@ -93,12 +93,14 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 	if (f->f_indirect == 0 && !alloc)
 		return -E_NOT_FOUND;
 
-	int blockno = alloc_block();
-	if (blockno < 0) return blockno;
+	if (f->f_indirect == 0) {
+		int blockno = alloc_block();
+		if (blockno < 0) return blockno;
+		f->f_indirect = blockno;
+		memset(diskaddr(f->f_indirect), 0, BLKSIZE);
+	}
 
-	f->f_indirect = alloc_block();
 	uint32_t *addr = (uint32_t *)diskaddr(f->f_indirect);
-	memset(addr, 0, BLKSIZE);
 	*ppdiskbno = &addr[filebno - NDIRECT];
 	return 0;
 }
@@ -123,5 +125,80 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 	}
 	*blk = (char *)diskaddr(*pdiskbno);
 	return 0;
+}
+```
+
+## Exercise 5
+
+> **Exercise 5.** Implement serve_read in fs/serv.c. 
+
+The `serve_read()` function should first find the corresponding `OpenFile` structure, and then use `file_read()` to read the data. There is no need to do parameter sanity checks since the user library wrappers will do that.
+
+```c
+int
+serve_read(envid_t envid, union Fsipc *ipc)
+{
+	struct Fsreq_read *req = &ipc->read;
+	struct Fsret_read *ret = &ipc->readRet;
+	struct OpenFile *of;
+	int r;
+
+	if (debug)
+		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+
+	// Lab 5: Your code here:
+	if ((r = openfile_lookup(envid, req->req_fileid, &of)) < 0)
+		return r;
+	if ((r = file_read(of->o_file, ret->ret_buf, req->req_n, of->o_fd->fd_offset)) < 0)
+		return r;
+	of->o_fd->fd_offset += r;
+	return r;
+}
+```
+
+## Exercise 6
+
+> **Exercise 6.** Implement serve_write in fs/serv.c and devfile_write in lib/file.c. 
+
+The implementation of `serve_write()` is almost identical to `serve_read()`.
+
+```c
+int
+serve_write(envid_t envid, struct Fsreq_write *req)
+{
+	if (debug)
+		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+
+	// LAB 5: Your code here.
+	int r;
+	struct OpenFile *of;
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &of)) < 0)
+		return r;
+	if ((r = file_write(of->o_file, req->req_buf, req->req_n, of->o_fd->fd_offset)) < 0)
+		return r;
+	of->o_fd->fd_offset += r;
+	return r;
+}
+```
+
+In `devfile_write()`, we can always write fewer bytes than requested, so it's ok to modify n if it is too large.
+
+```c
+static ssize_t
+devfile_write(struct Fd *fd, const void *buf, size_t n)
+{
+	int r;
+	int bufsize = sizeof(fsipcbuf.write.req_buf);
+
+	n = MIN(bufsize, n);
+	memmove(fsipcbuf.write.req_buf, buf, n);
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	if ((r = fsipc(FSREQ_WRITE, NULL)) < 0)
+		return r;
+	assert(r <= n);
+	assert(r <= bufsize);
+	return r;
 }
 ```

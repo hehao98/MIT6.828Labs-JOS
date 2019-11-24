@@ -149,12 +149,14 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 	if (f->f_indirect == 0 && !alloc)
 		return -E_NOT_FOUND;
 
-	int blockno = alloc_block();
-	if (blockno < 0) return blockno;
+	if (f->f_indirect == 0) {
+		int blockno = alloc_block();
+		if (blockno < 0) return blockno;
+		f->f_indirect = blockno;
+		memset(diskaddr(f->f_indirect), 0, BLKSIZE);
+	}
 
-	f->f_indirect = alloc_block();
 	uint32_t *addr = (uint32_t *)diskaddr(f->f_indirect);
-	memset(addr, 0, BLKSIZE);
 	*ppdiskbno = &addr[filebno - NDIRECT];
 	return 0;
 }

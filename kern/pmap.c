@@ -498,10 +498,16 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if (pte == NULL) {
 		return -E_NO_MEM;
 	}
-	pp->pp_ref++;
+	if (PTE_ADDR(*pte) == page2pa(pp)) {
+		*pte = page2pa(pp) | perm | PTE_P;
+		tlb_invalidate(pgdir, va);
+		return 0;
+	}
 	if (*pte & PTE_P) {
 		page_remove(pgdir, va);
+		assert(*pte == 0);
 	}
+	pp->pp_ref++;
 	*pte = page2pa(pp) | perm | PTE_P;
 	pgdir[PDX(va)] |= perm;
 	return 0;

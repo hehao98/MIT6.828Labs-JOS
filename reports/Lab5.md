@@ -2,6 +2,46 @@
 
 ## Summary of Results
 
+All exercises finished and questions answered. By running `make grade` we can get the following output.
+
+```
+hehao@hehao-lenovo:~/Desktop/MIT6.828/Labs$ make grade
+make clean
+make[1]: Entering directory '/home/hehao/Desktop/MIT6.828/Labs'
+rm -rf obj .gdbinit jos.in qemu.log
+make[1]: Leaving directory '/home/hehao/Desktop/MIT6.828/Labs'
+./grade-lab5 
+make[1]: Entering directory '/home/hehao/Desktop/MIT6.828/Labs'
+...A lot of compiling and linking output ignored
+make[1]: Leaving directory '/home/hehao/Desktop/MIT6.828/Labs'
+internal FS tests [fs/test.c]: OK (0.8s) 
+  fs i/o: OK 
+  check_bc: OK 
+  check_super: OK 
+  check_bitmap: OK 
+  alloc_block: OK 
+  file_open: OK 
+  file_get_block: OK 
+  file_flush/file_truncate/file rewrite: OK 
+testfile: OK (2.3s) 
+  serve_open/file_stat/file_close: OK 
+  file_read: OK 
+  file_write: OK 
+  file_read after file_write: OK 
+  open: OK 
+  large file: OK 
+spawn via spawnhello: OK (0.7s) 
+Protection I/O space: OK (1.9s) 
+PTE_SHARE [testpteshare]: OK (2.3s) 
+PTE_SHARE [testfdsharing]: OK (1.6s) 
+start the shell [icode]: Timeout! OK (32.1s) 
+testshell: OK (2.0s) 
+primespipe: OK (4.4s) 
+Score: 150/150
+```
+
+For challenge, I choose to implement eviction policy for the disk block cache. See the challenge section below for more details.
+
 ## Exercise 1
 
 > **Exercise 1.** i386_init identifies the file system environment by passing the type ENV_TYPE_FS to your environment creation function, env_create. Modify env_create in env.c, so that it gives the file system environment I/O privilege, but never gives that privilege to any other environment. 
@@ -298,3 +338,54 @@ Type a line: sadqrqfdsfweg
 sadqrqfdsfweg
 ```
 
+## Exercise 10
+
+> **Exercise 10.** The shell doesn't support I/O redirection. It would be nice to run sh < script instead of having to type in all the commands in the script by hand, as you did above. Add I/O redirection for < to user/sh.c.
+
+The input redirection code is just mimicking output redirection code provided below.
+
+```c
+// LAB 5: Your code here.
+if ((fd = open(t, O_RDONLY)) < 0) {
+	cprintf("open %s for read: %e", t, fd);
+	exit();
+}
+if (fd != 0) {
+	dup(fd, 0);
+	close(fd);
+}
+```
+
+However, after testing I have found subtle bugs in `make run-testshell`, which turned out to be that in `page_insert()` I forgot to invalidate TLB when a page is reinserted to the same address! This will cause the file system sanity checks to fail because the `pp_ref` field of a `struct PageInfo` will be incorrect.
+
+Here is the updated `page_insert()` code
+
+```c
+int
+page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
+{
+	pte_t *pte = pgdir_walk(pgdir, va, true);
+	if (pte == NULL) {
+		return -E_NO_MEM;
+	}
+	if (PTE_ADDR(*pte) == page2pa(pp)) {
+		*pte = page2pa(pp) | perm | PTE_P;
+		tlb_invalidate(pgdir, va);
+		return 0;
+	}
+	if (*pte & PTE_P) {
+		page_remove(pgdir, va);
+		assert(*pte == 0);
+	}
+	pp->pp_ref++;
+	*pte = page2pa(pp) | perm | PTE_P;
+	pgdir[PDX(va)] |= perm;
+	return 0;
+}
+```
+
+After that I can achieve a score of 150/150 in `make grade`.
+
+## Challenge!
+
+> **Challenge!** The block cache has no eviction policy. Once a block gets faulted in to it, it never gets removed and will remain in memory forevermore. Add eviction to the buffer cache. Using the PTE_A "accessed" bits in the page tables, which the hardware sets on any access to a page, you can track approximate usage of disk blocks without the need to modify every place in the code that accesses the disk map region. Be careful with dirty blocks. 

@@ -84,6 +84,8 @@ static void check_page_installed_pgdir(void);
 // If we're out of memory, boot_alloc should panic.
 // This function may ONLY be used during initialization,
 // before the page_free_list list has been set up.
+// Note that when this function is called, we are still using entry_pgdir,
+// which only maps the first 4MB of physical memory.
 static void *
 boot_alloc(uint32_t n)
 {
@@ -397,6 +399,14 @@ page_decref(struct PageInfo* pp)
 		page_free(pp);
 }
 
+// Return address to current page directory entry
+pde_t *
+get_curr_pde()
+{
+	// Current only kernel page table
+	return kern_pgdir;
+}
+
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE) for linear address 'va'.
 // This requires walking the two-level page table structure.
@@ -496,10 +506,16 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if (pte == NULL) {
 		return -E_NO_MEM;
 	}
-	pp->pp_ref++;
+	if (PTE_ADDR(*pte) == page2pa(pp)) {
+		*pte = page2pa(pp) | perm | PTE_P;
+		tlb_invalidate(pgdir, va);
+		return 0;
+	}
 	if (*pte & PTE_P) {
 		page_remove(pgdir, va);
+		assert(*pte == 0);
 	}
+	pp->pp_ref++;
 	*pte = page2pa(pp) | perm | PTE_P;
 	pgdir[PDX(va)] |= perm;
 	return 0;

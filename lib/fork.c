@@ -77,7 +77,7 @@ duppage(envid_t envid, unsigned pn)
 	int perm;
 
 	// LAB 4: Your code here.
-	if ((pte & PTE_W) || (pte & PTE_COW)) {
+	if (((pte & PTE_W) || (pte & PTE_COW)) && !(pte & PTE_SHARE)) {
 		pte = (pte & (~PTE_W)) | PTE_COW;
 		perm = pte & PTE_SYSCALL;
 		if ((r = sys_page_map(srcid, (void*)addr, envid, (void*)addr, perm)) < 0) {

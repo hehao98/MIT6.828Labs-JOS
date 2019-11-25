@@ -302,6 +302,24 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	for (int i = 0; i < NPDENTRIES; ++i) {
+		if (!(uvpd[i] & PTE_P)) continue;
+		for (int j = 0; j < NPTENTRIES; ++j) {
+			uint32_t pn = i * NPDENTRIES + j;
+			void *addr = (void *)(pn * PGSIZE);
+			int r;
+
+			if (pn == ((UXSTACKTOP - PGSIZE) >> PGSHIFT)) continue;
+			if (pn * PGSIZE >= UTOP) continue;
+			if (!(uvpt[pn] & PTE_P)) continue;
+			if (uvpt[pn] & PTE_SHARE) {
+				if ((r = sys_page_map(thisenv->env_id, addr, 
+					child, addr, uvpt[pn] & PTE_SYSCALL)) < 0) {
+					panic("sys_page_map: %e\n", r);
+				}
+			}
+		}
+	}
 	return 0;
 }
 

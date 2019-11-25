@@ -228,7 +228,47 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	e->env_tf.tf_ss = GD_UD | 3;
 	e->env_tf.tf_cs = GD_UT | 3;
 	e->env_tf.tf_eflags |= FL_IF;
-	e->env_tf.tf_eflags |= FL_IOPL_0;
+	e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
+	return 0;
+}
+```
+
+## Exercise 8
+
+> Exercise 8. Change duppage in lib/fork.c to follow the new convention. If the page table entry has the PTE_SHARE bit set, just copy the mapping directly. (You should use PTE_SYSCALL, not 0xfff, to mask out the relevant bits from the page table entry. 0xfff picks up the accessed and dirty bits as well.) Likewise, implement copy_shared_pages in lib/spawn.c. It should loop through all page table entries in the current process (just like fork did), copying any page mappings that have the PTE_SHARE bit set into the child process. 
+
+Modifying one line of code in `duppage()` will suffice.
+
+```c
+if (((pte & PTE_W) || (pte & PTE_COW)) && !(pte & PTE_SHARE)) {
+	// Copy PTE With COW
+```
+
+The implementation of `copy_shared_pages()` is similiar to `fork()`.
+
+```c
+static int
+copy_shared_pages(envid_t child)
+{
+	// LAB 5: Your code here.
+	for (int i = 0; i < NPDENTRIES; ++i) {
+		if (!(uvpd[i] & PTE_P)) continue;
+		for (int j = 0; j < NPTENTRIES; ++j) {
+			uint32_t pn = i * NPDENTRIES + j;
+			void *addr = (void *)(pn * PGSIZE);
+			int r;
+
+			if (pn == ((UXSTACKTOP - PGSIZE) >> PGSHIFT)) continue;
+			if (pn * PGSIZE >= UTOP) continue;
+			if (!(uvpt[pn] & PTE_P)) continue;
+			if (uvpt[pn] & PTE_SHARE) {
+				if ((r = sys_page_map(thisenv->env_id, addr, 
+					child, addr, uvpt[pn] & PTE_SYSCALL)) < 0) {
+					panic("sys_page_map: %e\n", r);
+				}
+			}
+		}
+	}
 	return 0;
 }
 ```

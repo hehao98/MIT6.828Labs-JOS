@@ -202,3 +202,33 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	return r;
 }
 ```
+
+## Exercise 7
+
+> **Exercise 7.** spawn relies on the new syscall sys_env_set_trapframe to initialize the state of the newly created environment. Implement sys_env_set_trapframe in kern/syscall.c (don't forget to dispatch the new system call in syscall()).
+
+One important thing to mention is that you should check the correctness of the provided trap frame address by using `user_mem_check()`. Also, theoritically you should not modify user address space, so I manually set the flags after the trap frame has been copied to `Env`.
+
+```c
+static int
+sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+	struct Env *e;
+	int32_t ret;
+	if ((ret = envid2env(envid, &e, 1)) < 0) {
+		return ret; // -E_BAD_ENV
+	}
+	if ((ret = user_mem_check(e, tf, sizeof(struct Trapframe), PTE_U)) < 0) {
+		return ret;
+	}
+	
+	memmove(&e->env_tf, tf, sizeof(struct Trapframe));
+	e->env_tf.tf_ds = GD_UD | 3;
+	e->env_tf.tf_es = GD_UD | 3;
+	e->env_tf.tf_ss = GD_UD | 3;
+	e->env_tf.tf_cs = GD_UT | 3;
+	e->env_tf.tf_eflags |= FL_IF;
+	e->env_tf.tf_eflags |= FL_IOPL_0;
+	return 0;
+}
+```

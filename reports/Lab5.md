@@ -272,3 +272,29 @@ copy_shared_pages(envid_t child)
 	return 0;
 }
 ```
+
+## Exercise 9
+
+> **Exercise 9.** In your kern/trap.c, call kbd_intr to handle trap IRQ_OFFSET+IRQ_KBD and serial_intr to handle trap IRQ_OFFSET+IRQ_SERIAL. 
+
+```c
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		kbd_intr();
+		return;
+	}
+
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+		serial_intr();
+		return;
+	}
+```
+
+After adding the above code in `trap.c` and running `make run-testkbd`, we can type something in a user environment like this.
+
+```
+Type a line: asdwfedsv  errwrwer
+asdwfedsv  errwrwer
+Type a line: sadqrqfdsfweg
+sadqrqfdsfweg
+```
+

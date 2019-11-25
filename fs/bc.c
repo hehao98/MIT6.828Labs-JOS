@@ -1,6 +1,12 @@
 
 #include "fs.h"
 
+#define BLKCACHE_SIZE 10
+
+static void *blkcache[BLKCACHE_SIZE];
+static uint32_t blkcache_id = 0;
+static uint32_t blkcache_size = 0;
+
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
@@ -58,13 +64,43 @@ bc_pgfault(struct UTrapframe *utf)
 	// block from disk
 	if ((r = sys_page_map(0, rounded_addr, 0, rounded_addr, 
 			uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
-		panic("in bc_pgfault, sys_page_map: %e", r);
+		panic("in bc_pgfault, sys_page_map: %e\n", r);
 
 	// Check that the block we read was allocated. (exercise for
 	// the reader: why do we do this *after* reading the block
 	// in?)
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
+
+	// Add this block to block cache, evict if necessary
+
+	// If we can find it in block cache, return
+	// This is solely for the super block, which might fault multiple times,
+	// But we only want one copy of super block in the cache
+	for (uint32_t i = 0; i < blkcache_size; ++i)
+		if (rounded_addr == blkcache[i]) return;
+
+	if (blkcache_size < BLKCACHE_SIZE) {
+		blkcache[blkcache_id] = rounded_addr;
+		blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+		blkcache_size++;
+	} else {
+		// The cache is full, now we need to find a replacement page
+		
+		// Super block should never be added 
+		// because they need to be accessed in bc_pgfault()!
+		if (blkcache[blkcache_id] == ROUNDDOWN(super, BLKSIZE))
+			blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+
+		// Do the real eviction here using FIFO.
+		// cprintf("flushed %08x at %d\n", blkcache[blkcache_id], blkcache_id);
+		if (uvpt[PGNUM(blkcache[blkcache_id])] & PTE_D)
+			flush_block(blkcache[blkcache_id]);
+		if ((r = sys_page_unmap(thisenv->env_id, blkcache[blkcache_id])) < 0)
+			panic("in bc_pgfault: sys_page_unmap: %e\n", r);
+		blkcache[blkcache_id] = rounded_addr;
+		blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+	}
 }
 
 // Flush the contents of the block containing VA out to disk if

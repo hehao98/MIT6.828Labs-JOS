@@ -389,3 +389,82 @@ After that I can achieve a score of 150/150 in `make grade`.
 ## Challenge!
 
 > **Challenge!** The block cache has no eviction policy. Once a block gets faulted in to it, it never gets removed and will remain in memory forevermore. Add eviction to the buffer cache. Using the PTE_A "accessed" bits in the page tables, which the hardware sets on any access to a page, you can track approximate usage of disk blocks without the need to modify every place in the code that accesses the disk map region. Be careful with dirty blocks. 
+
+I implement the cache as a circular buffer that stores addresses where the disk blocks are mapped.
+
+```c
+#define BLKCACHE_SIZE 10
+
+static void *blkcache[BLKCACHE_SIZE];
+static uint32_t blkcache_id = 0;
+static uint32_t blkcache_size = 0;
+```
+
+`BLKCACHE_SIZE` is intentionally set to a very small value, so that we can test the cache eviction strategy more aggressively.
+
+The real eviction takes place in `bc_pgfault()`, after the new page is loaded. There are a number of subtle points that we need to handle when evicting cached blocks. 
+
+First, the super block should never be evicted, because super block need to be accessed in the `bc_pgfault()`. If it is evicted, the page fault handler will trigger page fault over and over again, eventually causing an exception stack overflow. However, we are not sure when the `super` field is set, and for the super block, even if it is in cache, it's possible to trigger a page fault for it! Therefore we need code to handle all the complexities with super block. 
+
+Second, we only need to flush the cached block when it is dirty. This can be easily determined by accessing the corresponding page table entry.
+
+Finally, we need to choose an appropriate eviction strategy. It's easy to implement a FIFO queue here, but implementing LRU is impossible with only an `PTE_A` bit. What's more, implementing clock algorithm (also called "second chance" algorithm) to approximate LRU is also not feasible. In clock algorithm, when iterate over the circular buffer, if a page's `PTE_A` is set, we clear this bit and move our pointer ahead. If `PTE_A` is not set, we choose this page as our victim buffer. We need to manually set `PTE_A` when implementing this, which is not supported by JOS! Therefore, I finally choose to implement a simple FIFO eviction algorithm. It's performance is also not that bad, even when cache size is just 10. The final code in `bc_pgfault()` is the following.
+
+```c
+// Add this block to block cache, evict if necessary
+// If we can find it in block cache, return
+// This is solely for the super block, which might faultmultiple times,
+// But we only want one copy of super block in the cache
+for (uint32_t i = 0; i < blkcache_size; ++i)
+	if (rounded_addr == blkcache[i]) return;
+if (blkcache_size < BLKCACHE_SIZE) {
+	blkcache[blkcache_id] = rounded_addr;
+	blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+	blkcache_size++;
+} else {
+	// The cache is full, now we need to find areplacement page
+	
+	// Super block should never be added 
+	// because they need to be accessed in bc_pgfault()!
+	if (blkcache[blkcache_id] == ROUNDDOWN(super,BLKSIZE))
+		blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+	// Do the real eviction here using FIFO.
+	// cprintf("flushed %08x at %d\n", blkcach[blkcache_id], blkcache_id);
+	if (uvpt[PGNUM(blkcache[blkcache_id])] & PTE_D)
+		flush_block(blkcache[blkcache_id]);
+	if ((r = sys_page_unmap(thisenv->env_id, blkcach[blkcache_id])) < 0)
+		panic("in bc_pgfault: sys_page_unmap: %e\n", r);
+	blkcache[blkcache_id] = rounded_addr;
+	blkcache_id = (blkcache_id + 1) % BLKCACHE_SIZE;
+}
+```
+
+By running `make grade` again we can confirm that our cache is not ruining the upper file system.
+
+```
+internal FS tests [fs/test.c]: OK (1.1s) 
+  fs i/o: OK 
+  check_bc: OK 
+  check_super: OK 
+  check_bitmap: OK 
+  alloc_block: OK 
+  file_open: OK 
+  file_get_block: OK 
+  file_flush/file_truncate/file rewrite: OK 
+testfile: OK (1.0s) 
+  serve_open/file_stat/file_close: OK 
+  file_read: OK 
+  file_write: OK 
+  file_read after file_write: OK 
+  open: OK 
+  large file: OK 
+spawn via spawnhello: OK (1.7s) 
+Protection I/O space: OK (2.3s) 
+PTE_SHARE [testpteshare]: OK (1.6s) 
+PTE_SHARE [testfdsharing]: OK (2.4s) 
+start the shell [icode]: Timeout! OK (31.3s) 
+testshell: OK (2.3s) 
+primespipe: OK 
+```
+
+This completes Lab 5.

@@ -6,13 +6,13 @@ WARNING: DO NOT COPY THIS REPOSITORY AS YOUR SOLUTION IF YOU ARE TAKING COURSES 
 
 ## Challenges
 
-Most of the solutions on the internet are missing challenges, but I have done some challenges in Lab 2-5, which might be useful for someone else. The challenges I solved are the following, you can refer to my reports and code for how I solved them.
+Most of the solutions on the Internet are missing challenges, but I have done some challenges in Lab 2-5, which might be useful for you. The challenges I solved are the following, you can refer to my reports and code for how I solved them.
 
 ### Lab 1 - Colored Output to Console
 
 > **Challenge.** Enhance the console to allow text to be printed in different colors. The traditional way to do this is to make it interpret [ANSI escape sequences](http://rrbrandt.dee.ufcg.edu.br/en/docs/ansi/) embedded in the text strings printed to the console, but you may use any mechanism you like. There is plenty of information on [the 6.828 reference page](https://pdos.csail.mit.edu/6.828/2018/reference.html) and elsewhere on the web on programming the VGA display hardware. If you're feeling really adventurous, you could try switching the VGA hardware into a graphics mode and making the console draw text onto the graphical frame buffer.
 
-### Lab 2 - More useful JOS monitor commands
+### Lab 2 - More Useful JOS Monitor Commands
 
 > **Challenge!** Extend the JOS kernel monitor with commands to:
 >

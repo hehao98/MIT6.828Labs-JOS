@@ -474,7 +474,7 @@ cprintf("x %d, y %x, z %d\n", x, y, z)
 
 ### Challenge
 
->**Challenge.** Enhance the console to allow text to be printed in different colors. The traditional way to do this is to make it interpret [ANSI escape sequences](http://rrbrandt.dee.ufcg.edu.br/en/docs/ansi/) embedded in the text strings printed to the console, but you may use any mechanism you like. There is plenty of information on [the 6.828 reference page](https://pdos.csail.mit.edu/6.828/2018/reference.html) and elsewhere on the web on programming the VGA display hardware. If you're feeling really adventurous, you could try switching the VGA hardware into a graphics mode and making the console draw text onto the graphical frame buffer.
+> **Challenge.** Enhance the console to allow text to be printed in different colors. The traditional way to do this is to make it interpret [ANSI escape sequences](http://rrbrandt.dee.ufcg.edu.br/en/docs/ansi/) embedded in the text strings printed to the console, but you may use any mechanism you like. There is plenty of information on [the 6.828 reference page](https://pdos.csail.mit.edu/6.828/2018/reference.html) and elsewhere on the web on programming the VGA display hardware. If you're feeling really adventurous, you could try switching the VGA hardware into a graphics mode and making the console draw text onto the graphical frame buffer.
 
 I implemented this by adopting the format in [ANSI escape sequences](http://rrbrandt.dee.ufcg.edu.br/en/docs/ansi/) and try to interpret this format in `printfmt()` function. Once a valid color changing sequence is found, `printfmt()` will call `set_color_info()` in `console.c` to change current console color.
 

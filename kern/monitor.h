@@ -17,5 +17,9 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 int mon_continue(int argc, char **argv, struct Trapframe *tf);
 int mon_singlestep(int argc, char **argv, struct Trapframe *tf);
+int mon_showmapping(int argc, char **argv, struct Trapframe *tf);
+int mon_phymem(int argc, char **argv, struct Trapframe *tf);
+int mon_virtmem(int argc, char **argv, struct Trapframe *tf);
+int mon_chgperm(int argc, char **argv, struct Trapframe *tf);
 
 #endif	// !JOS_KERN_MONITOR_H
